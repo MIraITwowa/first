@@ -175,8 +175,8 @@ WSGI_APPLICATION = 'crossborder_trade.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.mysql',
-        'NAME': 'crossborder_trade',
-        'USER': 'root',
+        'NAME': 'fiveClassDemo',
+        'USER': 'fiveClassDemo',
         'PASSWORD': 'root123',
         'HOST': '127.0.0.1',
         'PORT': '3306',
