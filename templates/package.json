@@ -1,0 +1,874 @@
+{
+    "categories": [
+        {
+            "id": 1,
+            "translations": {
+                "en": "Beauty & Skincare",
+                "zh": "美妆护肤"
+            }
+        },
+        {
+            "id": 2,
+            "translations": {
+                "en": "Clothing & Bags",
+                "zh": "服饰鞋包"
+            }
+        },
+        {
+            "id": 3,
+            "translations": {
+                "en": "Imported Food",
+                "zh": "进口食品"
+            }
+        },
+        {
+            "id": 4,
+            "translations": {
+                "en": "Digital Appliances",
+                "zh": "数码电器"
+            }
+        },
+        {
+            "id": 5,
+            "translations": {
+                "en": "Books & Stationery",
+                "zh": "图书文具"
+            }
+        },
+        {
+            "id": 6,
+            "translations": {
+                "en": "Home & Living",
+                "zh": "家居生活"
+            }
+        },
+        {
+            "id": 7,
+            "translations": {
+                "en": "Toys & Maternity",
+                "zh": "玩具母婴"
+            }
+        }
+    ],
+    "products": [
+        {
+            "id": 1,
+            "translations": {
+                "en": {
+                    "name": "Morning Light/Crystal Gel Pen",
+                    "description": "0.5mm bullet tip black gel pen, smooth writing"
+                },
+                "zh": {
+                    "name": "晨光优品中性笔",
+                    "description": "0.5mm子弹头黑色中性笔，顺滑书写"
+                }
+            }
+        },
+        {
+            "id": 2,
+            "translations": {
+                "en": {
+                    "name": "Guyu Paper Notebook",
+                    "description": "A5 size with removable back cover, 80 pages/book"
+                },
+                "zh": {
+                    "name": "国誉活页笔记本",
+                    "description": "85尺寸可拆卸后取木，80页/本"
+                }
+            }
+        },
+        {
+            "id": 3,
+            "translations": {
+                "en": {
+                    "name": "Deli Calculator",
+                    "description": "12-digit solar and battery dual power calculator"
+                },
+                "zh": {
+                    "name": "得力计算器",
+                    "description": "12位太阳能双电测计算器"
+                }
+            }
+        },
+        {
+            "id": 4,
+            "translations": {
+                "en": {
+                    "name": "Zebra J115 Color Gel Pen Set",
+                    "description": "0.5mm colored gel pen set (5 colors available)"
+                },
+                "zh": {
+                    "name": "斑马JJ15彩色中性笔",
+                    "description": "0.5mm彩色中性笔套装（5色可选）"
+                }
+            }
+        },
+        {
+            "id": 5,
+            "translations": {
+                "en": {
+                    "name": "Pilot/86 Fountain Pen",
+                    "description": "Classic fountain pen, ideal for daily writing"
+                },
+                "zh": {
+                    "name": "百乐78G钢笔",
+                    "description": "经典长线钢笔，适合自带书写"
+                }
+            }
+        },
+        {
+            "id": 6,
+            "translations": {
+                "en": {
+                    "name": "Muji Recycled Paper Notebook",
+                    "description": "A5 size, eco-friendly recycled paper, minimalist design"
+                },
+                "zh": {
+                    "name": "MUJI无印良品再生纸笔记本",
+                    "description": "85尺寸，环保再生纸，简约设计"
+                }
+            }
+        },
+        {
+            "id": 7,
+            "translations": {
+                "en": {
+                    "name": "Deli A47 Printer Paper (500 sheets)",
+                    "description": "80gsm high whiteness, compatible with all printers"
+                },
+                "zh": {
+                    "name": "得力A47印纸（500张）",
+                    "description": "80高白度，兼容各类打印机"
+                }
+            }
+        },
+        {
+            "id": 8,
+            "translations": {
+                "en": {
+                    "name": "Snow Happy Correction Tape (3 pcs)",
+                    "description": "Smooth coverage, resistant to breaking"
+                },
+                "zh": {
+                    "name": "普乐士修正带（3个装）",
+                    "description": "顺滑覆盖，不易断裂"
+                }
+            }
+        },
+        {
+            "id": 9,
+            "translations": {
+                "en": {
+                    "name": "Mitsubishi Automatic Pencil",
+                    "description": "0.5mm waterproof and moisture-proof automatic pencil"
+                },
+                "zh": {
+                    "name": "三菱uni自动铅笔",
+                    "description": "0.5mm防潮防水自动铅笔"
+                }
+            }
+        },
+        {
+            "id": 10,
+            "translations": {
+                "en": {
+                    "name": "Muji Speaker Humidifier",
+                    "description": "Ultrasonic silent humidifier, can be used with aromatherapy"
+                },
+                "zh": {
+                    "name": "无印良品香薰加湿器 ",
+                    "description": "超声波静音加湿，可搭配精油使用"
+                }
+            }
+        },
+        {
+            "id": 11,
+            "translations": {
+                "en": {
+                    "name": "Supor Smart Rice Cooker",
+                    "description": "4L capacity, multi-function smart rice cooker"
+                },
+                "zh": {
+                    "name": "苏泊尔智能电饭煲",
+                    "description": "4L容量，多功能智能预约"
+                }
+            }
+        },
+        {
+            "id": 12,
+            "translations": {
+                "en": {
+                    "name": "IKEA Anti-Pollution Curtain",
+                    "description": "Simple 75cm water gauge, multiple colors available"
+                },
+                "zh": {
+                    "name": "IKEA拉克边桌",
+                    "description": "简约方形小茶几，多种颜色可选"
+                }
+            }
+        },
+        {
+            "id": 13,
+            "translations": {
+                "en": {
+                    "name": "Xiaomi Air Purifier",
+                    "description": "High efficiency PM2.5 filtration, smart APP control"
+                },
+                "zh": {
+                    "name": "小米空气净化器4",
+                    "description": "高效过滤PM2.5，智能APP控制"
+                }
+            }
+        },
+        {
+            "id": 14,
+            "translations": {
+                "en": {
+                    "name": "Tmall Rain Umbrella",
+                    "description": "Ultra-light portable, UV protection folding umbrella"
+                },
+                "zh": {
+                    "name": "天堂晴雨伞",
+                    "description": "超轻便携，防紫外线折叠伞"
+                }
+            }
+        },
+        {
+            "id": 15,
+            "translations": {
+                "en": {
+                    "name": "Midea Induction Cooker",
+                    "description": "2100W high power, smart touch control"
+                },
+                "zh": {
+                    "name": "美的电磁炉",
+                    "description": "2100W大火力，智能触控"
+                }
+            }
+        },
+        {
+            "id": 16,
+            "translations": {
+                "en": {
+                    "name": "Joyoung Soy Milk Maker",
+                    "description": "Multi-function touch screen, one-key quick operation"
+                },
+                "zh": {
+                    "name": "九阳豆浆机",
+                    "description": "多功能触摸屏，一键快速操作"
+                }
+            }
+        },
+        {
+            "id": 17,
+            "translations": {
+                "en": {
+                    "name": "3M Electrostatic Dust Mop",
+                    "description": "Wet and dry use, captures hair and dust"
+                },
+                "zh": {
+                    "name": "3M静电拖把",
+                    "description": "免洗干湿两用，吸附毛发灰尘"
+                }
+            }
+        },
+        {
+            "id": 18,
+            "translations": {
+                "en": {
+                    "name": "Lego Classic Creative Brick Box",
+                    "description": "For children aged 3+, stimulates creativity"
+                },
+                "zh": {
+                    "name": "乐高经典创意积木盒",
+                    "description": "适合3岁以上儿童，激发创造力"
+                }
+            }
+        },
+        {
+            "id": 19,
+            "translations": {
+                "en": {
+                    "name": "Fisher-Price Smart Learning Puppy",
+                    "description": "Bilingual interactive plush toy, suitable for 6+ months"
+                },
+                "zh": {
+                    "name": "费雪智能学习狗",
+                    "description": "双语互动毛绒玩具，适合6个月+"
+                }
+            }
+        },
+        {
+            "id": 20,
+            "translations": {
+                "en": {
+                    "name": "B.Toys Building Blocks Bucket",
+                    "description": "Large particle blocks, suitable for 1-3 years old"
+                },
+                "zh": {
+                    "name": "B.Toys积木桶",
+                    "description": "大颗粒积木，适合1-3岁幼儿"
+                }
+            }
+        },
+        {
+            "id": 21,
+            "translations": {
+                "en": {
+                    "name": "Pigeon Wide-Neck Baby Bottle",
+                    "description": "Anti-colic design, 240ml (PP material)"
+                },
+                "zh": {
+                    "name": "贝亲宽口径奶瓶",
+                    "description": "防胀气设计，240ml（PP材质）"
+                }
+            }
+        },
+        {
+            "id": 22,
+            "translations": {
+                "en": {
+                    "name": "Pampers Premium Care Diapers",
+                    "description": "Ultra-thin breathable, NB size (84 pieces)"
+                },
+                "zh": {
+                    "name": "帮宝适一级帮纸尿裤",
+                    "description": "超薄透气，NB码（84片装）"
+                }
+            }
+        },
+        {
+            "id": 23,
+            "translations": {
+                "en": {
+                    "name": "Kub Baby Stroller",
+                    "description": "Lightweight foldable, one-click folding"
+                },
+                "zh": {
+                    "name": "可优比婴儿手推车",
+                    "description": "轻便可折叠，一键收车"
+                }
+            }
+        },
+        {
+            "id": 24,
+            "translations": {
+                "en": {
+                    "name": "Mi Rabbit Smart Story Machine",
+                    "description": "AI voice interaction, massive collection of nursery rhymes and stories"
+                },
+                "zh": {
+                    "name": "米兔智能故事机",
+                    "description": "AI语音互动，海量儿歌故事"
+                }
+            }
+        },
+        {
+            "id": 25,
+            "translations": {
+                "en": {
+                    "name": "Qiaohu Early Education Kit (1-2 years)",
+                    "description": "Monthly delivery of toys + picture books + parent guide"
+                },
+                "zh": {
+                    "name": "巧虎早教套装（1-2岁）",
+                    "description": "每月配送玩具+绘本+家长指南"
+                }
+            }
+        },
+        {
+            "id": 26,
+            "translations": {
+                "en": {
+                    "name": "Goodbaby Children's Thermos Cup",
+                    "description": "316 stainless steel, leak-proof straw design"
+                },
+                "zh": {
+                    "name": "好孩子儿童保温杯",
+                    "description": "316不锈钢，防漏吸管设计"
+                }
+            }
+        },
+        {
+            "id": 27,
+            "translations": {
+                "en": {
+                    "name": "Nanjiren Coral Fleece Bedding Set",
+                    "description": "Winter thickened warm flannel sheet and duvet cover"
+                },
+                "zh": {
+                    "name": "南极人珊瑚绒四件套",
+                    "description": "冬季加厚保暖，法兰绒床单被套"
+                }
+            }
+        },
+        {
+            "id": 28,
+            "translations": {
+                "en": {
+                    "name": "Shoe Storage Cabinet",
+                    "description": "Multi-layer shoe rack combination"
+                },
+                "zh": {
+                    "name": "渴望猫粮",
+                    "description": "成猫幼猫干粮 全价通用无谷原味鸡肉"
+                }
+            }
+        },
+        {
+            "id": 29,
+            "translations": {
+                "en": {
+                    "name": "Nestle Health Science Formula",
+                    "description": "Lactose-free milk protein hydrolysate formula powder"
+                },
+                "zh": {
+                    "name": "雀巢健康科学配方粉",
+                    "description": "含乳糖乳蛋白深度水解配方粉"
+                }
+            }
+        },
+        {
+            "id": 30,
+            "translations": {
+                "en": {
+                    "name": "Acana Cat Food",
+                    "description": "Ranch feast formula with chicken"
+                },
+                "zh": {
+                    "name": "爱肯拿猫粮",
+                    "description": "牧场盛宴配方含鸡肉"
+                }
+            }
+        },
+        {
+            "id": 31,
+            "translations": {
+                "en": {
+                    "name": "Samyang Spicy Chicken Noodles",
+                    "description": "Instant noodles in bag"
+                },
+                "zh": {
+                    "name": "三养火鸡面",
+                    "description": "适合方便面袋装"
+                }
+            }
+        },
+        {
+            "id": 32,
+            "translations": {
+                "en": {
+                    "name": "Lindt Swiss Chocolate Assortment",
+                    "description": "Outer crispy shell with smooth chocolate filling"
+                },
+                "zh": {
+                    "name": "瑞士莲软心巧克力精选",
+                    "description": "外层脆壳与内芯丝滑巧克力形成独特口感"
+                }
+            }
+        },
+        {
+            "id": 33,
+            "translations": {
+                "en": {
+                    "name": "Frisian Imported Cat Canned Food",
+                    "description": "White tuna + beef canned food"
+                },
+                "zh": {
+                    "name": "富力鲜进口猫罐头",
+                    "description": "白身鲔鱼+牛肉罐头"
+                }
+            }
+        },
+        {
+            "id": 34,
+            "translations": {
+                "en": {
+                    "name": "Calbee Cereal",
+                    "description": "Japanese imported instant oatmeal with fruit ingredients"
+                },
+                "zh": {
+                    "name": "卡乐比麦片",
+                    "description": "日本进口，即食燕麦片，含有水果成分"
+                }
+            }
+        },
+        {
+            "id": 35,
+            "translations": {
+                "en": {
+                    "name": "Maxim's Original Egg Rolls",
+                    "description": "Hong Kong specialty, crispy texture, ideal as snack or gift"
+                },
+                "zh": {
+                    "name": "美心原味鸡蛋卷",
+                    "description": "中国香港特产，口感醇脆，适合休闲零食或礼盒"
+                }
+            }
+        },
+        {
+            "id": 36,
+            "translations": {
+                "en": {
+                    "name": "Wanpy Imported Cat Canned Food",
+                    "description": "Broth type with fish and shrimp"
+                },
+                "zh": {
+                    "name": "顽皮进口猫罐头",
+                    "description": "汤汁型香草鱼+明虾"
+                }
+            }
+        },
+        {
+            "id": 37,
+            "translations": {
+                "en": {
+                    "name": "Vdada Rice Cooker",
+                    "description": "Rice and soup separation, can schedule cooking"
+                },
+                "zh": {
+                    "name": "VDADA电饭煲",
+                    "description": "米汤分离家用电器，可预约粥汤"
+                }
+            }
+        },
+        {
+            "id": 38,
+            "translations": {
+                "en": {
+                    "name": "Zemkon Rice Cooker",
+                    "description": "Smart 3.45L rice and soup separation for 4-5 people"
+                },
+                "zh": {
+                    "name": "德国Zemkon电饭煲",
+                    "description": "智能345L米汤分离多功能家用4-5人电饭锅"
+                }
+            }
+        },
+        {
+            "id": 39,
+            "translations": {
+                "en": {
+                    "name": "Portable Travel Electric Kettle",
+                    "description": "Stainless steel foldable electric kettle"
+                },
+                "zh": {
+                    "name": "小型旅行电热水壶",
+                    "description": "不锈钢便携式电热壶"
+                }
+            }
+        },
+        {
+            "id": 40,
+            "translations": {
+                "en": {
+                    "name": "Supor Electric Kettle SW-17001",
+                    "description": "Home automatic shut-off boiling water kettle"
+                },
+                "zh": {
+                    "name": "苏泊尔电热水壶SW-17001",
+                    "description": "家用全自动断电开水壶"
+                }
+            }
+        },
+        {
+            "id": 41,
+            "translations": {
+                "en": {
+                    "name": "Siemens Dishwasher SK23E800T",
+                    "description": "With washing programs, high-temperature steam sterilization"
+                },
+                "zh": {
+                    "name": "西门子洗碗机SK23E800T",
+                    "description": "具备洗涤程序，能高温蒸汽杀菌"
+                }
+            }
+        },
+        {
+            "id": 42,
+            "translations": {
+                "en": {
+                    "name": "German Damasi Electric Juicer",
+                    "description": "Home multi-function food processor with cleaning function"
+                },
+                "zh": {
+                    "name": "德国威玛斯电动料理机",
+                    "description": "家用多功能料理机带清洗功能"
+                }
+            }
+        },
+        {
+            "id": 43,
+            "translations": {
+                "en": {
+                    "name": "Panasonic 3-Door Refrigerator",
+                    "description": "300L household refrigerator, energy efficiency class 1"
+                },
+                "zh": {
+                    "name": "松下三开门电冰箱",
+                    "description": "300升家用三开门电冰箱一级能效"
+                }
+            }
+        },
+        {
+            "id": 44,
+            "translations": {
+                "en": {
+                    "name": "Siemens 497L French Door Refrigerator",
+                    "description": "Ultra-thin embedded variable temperature storage"
+                },
+                "zh": {
+                    "name": "西门子497升十字门冰箱",
+                    "description": "超薄嵌入式十字门变温储鲜一级能效"
+                }
+            }
+        },
+        {
+            "id": 45,
+            "translations": {
+                "en": {
+                    "name": "Toshiba Refrigerator Pro",
+                    "description": "Fully embedded ultra-thin dual system energy saving"
+                },
+                "zh": {
+                    "name": "东芝大白Pro高端冰箱",
+                    "description": "全嵌入式超薄双系统多循环节能无霜冰箱"
+                }
+            }
+        },
+        {
+            "id": 46,
+            "translations": {
+                "en": {
+                    "name": "AHC Hydration Set",
+                    "description": "AHC toner + emulsion + protective cream set"
+                },
+                "zh": {
+                    "name": "AHC神仙水乳套装",
+                    "description": "AHC神仙水乳套装及隔离防护霜"
+                }
+            }
+        },
+        {
+            "id": 47,
+            "translations": {
+                "en": {
+                    "name": "Avene Thermal Spring Water",
+                    "description": "Soothing and moisturizing facial spray"
+                },
+                "zh": {
+                    "name": "雅漾舒护活泉喷雾",
+                    "description": "雅漾舒适调理柔肤水保湿补水爽肤水"
+                }
+            }
+        },
+        {
+            "id": 48,
+            "translations": {
+                "en": {
+                    "name": "BVP Hydrating Set",
+                    "description": "Toner + essence combination for hydration"
+                },
+                "zh": {
+                    "name": "BVP保湿套装",
+                    "description": "即饮水+精华液组合，水润保湿"
+                }
+            }
+        },
+        {
+            "id": 49,
+            "translations": {
+                "en": {
+                    "name": "A.H.C. Skincare Set",
+                    "description": "Advanced hyaluronic acid toner + emulsion set"
+                },
+                "zh": {
+                    "name": "A.H.C.护肤套装",
+                    "description": "玻尿酸水乳套装，适合熟龄肌肤"
+                }
+            }
+        },
+        {
+            "id": 50,
+            "translations": {
+                "en": {
+                    "name": "Estee Lauder Eye Cream",
+                    "description": "Advanced Night Repair eye cream, reduces dark circles"
+                },
+                "zh": {
+                    "name": "雅诗兰黛眼霜",
+                    "description": "第五代小棕瓶特润修护精华眼霜"
+                }
+            }
+        },
+        {
+            "id": 51,
+            "translations": {
+                "en": {
+                    "name": "Proya Moisturizing Lotion",
+                    "description": "Ruby activating lotion for firming and hydration"
+                },
+                "zh": {
+                    "name": "珀莱雅活肤水",
+                    "description": "红宝石活肤水紧致爽肤水保湿补水"
+                }
+            }
+        },
+        {
+            "id": 52,
+            "translations": {
+                "en": {
+                    "name": "HABA G-Lotion",
+                    "description": "180ml moisturizing and nourishing toner"
+                },
+                "zh": {
+                    "name": "HABA柔肤水",
+                    "description": "G露化妆水180ml 补水保湿滋润柔肤水"
+                }
+            }
+        },
+        {
+            "id": 53,
+            "translations": {
+                "en": {
+                    "name": "Carslan Liquid Foundation",
+                    "description": "Classic small drop foundation, flawless coverage"
+                },
+                "zh": {
+                    "name": "卡姿兰粉底液",
+                    "description": "小奶滴粉底液，滋润无瑕疵妆容"
+                }
+            }
+        },
+        {
+            "id": 54,
+            "translations": {
+                "en": {
+                    "name": "Tenda Black Facial Mask",
+                    "description": "Hydrating black mask with brightening effect"
+                },
+                "zh": {
+                    "name": "腾达水光黑面膜",
+                    "description": "水光黑面膜补水保湿提亮肤色"
+                }
+            }
+        },
+        {
+            "id": 55,
+            "translations": {
+                "en": {
+                    "name": "ILOVECHOC Printed T-shirt",
+                    "description": "Fashion casual T-shirt with pixel pattern design"
+                },
+                "zh": {
+                    "name": "ILOVECHOC印花T恤",
+                    "description": "像素印花设计时尚休闲T恤"
+                }
+            }
+        },
+        {
+            "id": 56,
+            "translations": {
+                "en": {
+                    "name": "Loftshine Chiffon Blouse",
+                    "description": "Elegant blue chiffon top with shiny sleeves"
+                },
+                "zh": {
+                    "name": "Loftshine雪纺衫",
+                    "description": "蓝色针织女式优雅气质雪纺衫"
+                }
+            }
+        },
+        {
+            "id": 57,
+            "translations": {
+                "en": {
+                    "name": "AMLL Linen Shirt",
+                    "description": "10-piece linen shirt set, reduces material irritation"
+                },
+                "zh": {
+                    "name": "AMLL亚麻衬衫",
+                    "description": "十件套夏布中式衬衫，减少材料刺激"
+                }
+            }
+        },
+        {
+            "id": 58,
+            "translations": {
+                "en": {
+                    "name": "Sophie Floor Pants",
+                    "description": "Casual long sleep pants with side pocket design"
+                },
+                "zh": {
+                    "name": "索菲丝尔拖地裤",
+                    "description": "休闲睡眠长裤侧袋设计"
+                }
+            }
+        },
+        {
+            "id": 59,
+            "translations": {
+                "en": {
+                    "name": "Christian Dior Leather Shoes",
+                    "description": "Italian imported green textured leather business shoes"
+                },
+                "zh": {
+                    "name": "克里斯汀·迪奥皮鞋",
+                    "description": "意大利进口绿色纹牛皮商务皮鞋"
+                }
+            }
+        },
+        {
+            "id": 60,
+            "translations": {
+                "en": {
+                    "name": "ZHR Pearl Strap Shoes",
+                    "description": "Pearl decorated one-strap shoes for women"
+                },
+                "zh": {
+                    "name": "ZHR珍珠扣饰单鞋",
+                    "description": "珍珠扣饰一字带女鞋"
+                }
+            }
+        },
+        {
+            "id": 61,
+            "translations": {
+                "en": {
+                    "name": "Christian Dior Loafers",
+                    "description": "Embossed leather fashion shoes with low heel"
+                },
+                "zh": {
+                    "name": "克里斯汀·迪奥乐福鞋",
+                    "description": "压花牛皮时尚单鞋低跟舒适"
+                }
+            }
+        },
+        {
+            "id": 62,
+            "translations": {
+                "en": {
+                    "name": "Qianbaidu Leather Shoes",
+                    "description": "Autumn men's business leather shoes with laces"
+                },
+                "zh": {
+                    "name": "千百度皮鞋",
+                    "description": "秋季男士商务皮鞋真皮系带"
+                }
+            }
+        },
+        {
+            "id": 63,
+            "translations": {
+                "en": {
+                    "name": "Midea Air Fryer",
+                    "description": "4.5L capacity, touch screen control, 360° hot air circulation"
+                },
+                "zh": {
+                    "name": "美的空气炸锅",
+                    "description": "4.5升容量，触屏控制，360°热风循环"
+                }
+            }
+        }
+    ]
+}
