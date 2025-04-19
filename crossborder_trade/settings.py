@@ -237,3 +237,9 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 # 支付环节配置
 # 模拟支付配置
 MOCK_PAYMENT_SUCCESS_RATE = 0.8  # 模拟支付成功的概率（80%）
+
+
+try:
+    from .local_settings import *
+except ImportError:
+    pass

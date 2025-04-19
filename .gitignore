@@ -61,6 +61,14 @@ local_settings.py
 db.sqlite3
 db.sqlite3-journal
 
+# 临时文件
+*.tmp
+*.bak
+*.swp
+
+# 日志目录
+logs/
+
 # Flask stuff:
 instance/
 .webassets-cache
@@ -165,3 +173,10 @@ cython_debug/
 # 除了初始化的这个都不提交
 */migrations/*.py
 !*/migrations/__init__.py
+
+# VS Code
+.vscode/
+
+# 媒体文件和静态文件
+/media/
+/staticfiles/
