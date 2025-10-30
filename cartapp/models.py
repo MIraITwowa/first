@@ -31,7 +31,9 @@ def create_cart(sender, instance=None, created=False, some_default_goods_id=None
 
     # 这里没有高亮，疑似是一个小问题，以后再说
 
-    if created:
-        # 如果是新创建的用户实例（即 created 为 True）
-        # 则为这个用户创建一个购物车实例
-        CartItem.objects.create(userInfo=instance, goods_id=some_default_goods_id)
+    if created and some_default_goods_id is not None:
+        # 如果传入了默认商品，则为这个用户创建对应的购物车记录
+        CartItem.objects.create(
+            userInfo=instance,
+            goods_id=some_default_goods_id,
+        )

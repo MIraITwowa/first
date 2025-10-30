@@ -61,17 +61,17 @@ class CheckoutTaskEnqueueTests(TestCase):
             addr='Test Street 1',
             aUserInfo=self.user,
         )
-        category = Category.objects.create(cname='Electronics')
+        self.category = Category.objects.create(cname='Electronics')
         self.goods = Goods.objects.create(
             gname='Test Phone',
             gdesc='A smartphone',
             price=Decimal('199.99'),
-            category=category,
+            category=self.category,
             brand='BrandX',
             stock=5,
             sales=0,
         )
-        CartItem.objects.create(
+        self.cart_item = CartItem.objects.create(
             userInfo=self.user,
             goods=self.goods,
             price=200,
@@ -96,6 +96,64 @@ class CheckoutTaskEnqueueTests(TestCase):
             event_type='order.created', aggregate_id=str(response.data['order_id'])
         )
         self.assertTrue(outbox_events.exists())
+
+    def test_checkout_total_amount_preserves_decimal_precision(self):
+        CartItem.objects.filter(userInfo=self.user).delete()
+        precision_goods = Goods.objects.create(
+            gname='Precision Widget',
+            gdesc='Precision gadget',
+            price=Decimal('19.97'),
+            category=self.category,
+            brand='BrandX',
+            stock=10,
+            sales=0,
+        )
+        CartItem.objects.create(
+            userInfo=self.user,
+            goods=precision_goods,
+            price=20,
+            num=3,
+            is_delete=False,
+        )
+
+        response = self.client.post(
+            reverse('checkout'),
+            data={'address_id': self.address.id},
+            format='json',
+        )
+        self.assertEqual(response.status_code, 201)
+
+        order = Order.objects.get(pk=response.data['order_id'])
+        self.assertEqual(order.total_amount, Decimal('59.91'))
+        self.assertEqual(response.data['total_amount'], '59.91')
+        line_item = order.orderitem_set.get()
+        self.assertEqual(line_item.count, Decimal('19.97'))
+
+    def test_checkout_skips_incomplete_cart_items(self):
+        invalid_item = CartItem.objects.create(
+            userInfo=self.user,
+            goods=None,
+            price=0,
+            num=1,
+            is_delete=False,
+        )
+
+        response = self.client.post(
+            reverse('checkout'),
+            data={'address_id': self.address.id},
+            format='json',
+        )
+        self.assertEqual(response.status_code, 201)
+
+        invalid_item.refresh_from_db()
+        self.assertTrue(invalid_item.is_delete)
+        self.assertFalse(
+            CartItem.objects.filter(
+                userInfo=self.user,
+                goods__isnull=True,
+                is_delete=False,
+            ).exists()
+        )
 
 
 class OrderCeleryTaskTests(CeleryEagerTestMixin, TestCase):
@@ -132,7 +190,7 @@ class OrderCeleryTaskTests(CeleryEagerTestMixin, TestCase):
             order=self.order,
             goods=self.goods,
             quantity=1,
-            count=int(self.goods.price),
+            count=self.goods.price,
         )
 
     def test_order_confirmation_task_runs(self):

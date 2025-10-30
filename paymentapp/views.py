@@ -1,16 +1,19 @@
 # paymentapp/views.py
-from django.http import HttpResponse  # 这里注释掉了JsonResponse
+import logging
+import random
+from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
+
+from django.conf import settings
+from django.db import transaction
 from django.views.decorators.csrf import csrf_exempt
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
-from rest_framework import status
+from rest_framework import serializers, status
 
-from django.conf import settings
+from crossborder_trade.flow_logging import log_flow_debug
 from .models import Payment
 from .serializers import PaymentSerializer, PaymentSuccessSerializer
 from orderapp.models import Order
-import logging
-import random
 
 logger = logging.getLogger(__name__)
 
@@ -37,55 +40,134 @@ def mock_pay(request):
     - order_id: 订单ID
     - total_amount: 支付金额
     """
-    if request.method == 'POST':
-        try:
-            # 获取订单号和金额
-            order_id = request.data.get('order_id')
-            total_amount = request.data.get('total_amount')
+    if request.method != 'POST':
+        return Response({'error': '无效的请求方法'}, status=status.HTTP_400_BAD_REQUEST)
 
-            # 获取订单信息
-            order = Order.objects.get(id=order_id)
+    order_id = request.data.get('order_id')
+    submitted_amount = request.data.get('total_amount')
 
-            # 模拟支付逻辑
+    if not order_id:
+        return Response({'error': '缺少订单ID'}, status=status.HTTP_400_BAD_REQUEST)
+    if submitted_amount is None:
+        return Response({'error': '缺少支付金额'}, status=status.HTTP_400_BAD_REQUEST)
+
+    try:
+        amount = Decimal(str(submitted_amount)).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+    except (InvalidOperation, TypeError):
+        return Response({'error': '支付金额格式不正确'}, status=status.HTTP_400_BAD_REQUEST)
+
+    try:
+        with transaction.atomic():
+            order = (
+                Order.objects.select_for_update()
+                .select_related('userinfo')
+                .get(id=order_id)
+            )
+            expected_amount = order.total_amount.quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+
+            log_flow_debug(
+                'payment',
+                'Processing mock payment request',
+                order_id=order.id,
+                user_id=getattr(order.userinfo, 'id', None),
+                expected=str(expected_amount),
+                received=str(amount),
+            )
+
+            if amount != expected_amount:
+                log_flow_debug(
+                    'payment',
+                    'Payment amount mismatch',
+                    order_id=order.id,
+                    user_id=getattr(order.userinfo, 'id', None),
+                    expected=str(expected_amount),
+                    received=str(amount),
+                )
+                return Response(
+                    {
+                        'error': '支付金额与订单金额不匹配',
+                        'expected_amount': str(expected_amount),
+                    },
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            if order.status != '待支付':
+                log_flow_debug(
+                    'payment',
+                    'Order status prevents payment',
+                    order_id=order.id,
+                    user_id=getattr(order.userinfo, 'id', None),
+                    order_status=order.status,
+                )
+                return Response(
+                    {
+                        'error': '订单状态不支持支付',
+                        'order_status': order.status,
+                    },
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
             payment_status = 'success' if random.random() < settings.MOCK_PAYMENT_SUCCESS_RATE else 'failed'
 
-            # 创建支付记录
             serializer = PaymentSerializer(data={
                 'order': order.id,
-                'amount': total_amount,
+                'amount': amount,
                 'payment_method': 'alipay',
-                'status': payment_status
             })
+            serializer.is_valid(raise_exception=True)
+            payment = serializer.save()
+            payment.status = payment_status
+            payment.save(update_fields=['status'])
 
-            if serializer.is_valid():
-                payment = serializer.save()
-                payment.status = payment_status
-                payment.save(update_fields=['status'])
-
-                if payment_status == 'success':
-                    order.update_status('待发货')
-                    _queue_payment_success_task(payment.id)
-
-                    return Response({
-                        'message': '支付成功',
-                        'payment_id': payment.id,
-                        'order_status': order.status
-                    }, status=status.HTTP_200_OK)
-                else:
-                    return Response({
-                        'error': '支付失败',
-                        'payment_id': payment.id
-                    }, status=status.HTTP_400_BAD_REQUEST)
-            else:
+            if payment_status == 'success':
+                order.update_status('待发货')
+                transaction.on_commit(lambda: _queue_payment_success_task(payment.id))
+                log_flow_debug(
+                    'payment',
+                    'Payment succeeded',
+                    order_id=order.id,
+                    user_id=getattr(order.userinfo, 'id', None),
+                    payment_id=payment.id,
+                )
                 return Response({
-                    'error': '支付数据验证失败',
-                    'details': serializer.errors
-                }, status=status.HTTP_400_BAD_REQUEST)
+                    'message': '支付成功',
+                    'payment_id': payment.id,
+                    'order_status': order.status
+                }, status=status.HTTP_200_OK)
 
-        except Order.DoesNotExist:
-            return Response({'error': '订单不存在'}, status=status.HTTP_404_NOT_FOUND)
-        except Exception as e:
-            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            log_flow_debug(
+                'payment',
+                'Payment failed',
+                order_id=order.id,
+                user_id=getattr(order.userinfo, 'id', None),
+                payment_id=payment.id,
+            )
+            return Response({
+                'error': '支付失败',
+                'payment_id': payment.id
+            }, status=status.HTTP_400_BAD_REQUEST)
+    except Order.DoesNotExist:
+        return Response({'error': '订单不存在'}, status=status.HTTP_404_NOT_FOUND)
+    except serializers.ValidationError as exc:
+        log_flow_debug(
+            'payment',
+            'Payment validation failed',
+            order_id=order_id,
+            error=str(exc.detail),
+        )
+        return Response({
+            'error': '支付数据验证失败',
+            'details': exc.detail
+        }, status=status.HTTP_400_BAD_REQUEST)
+    except Exception as exc:
+        logger.exception("支付处理失败 order_id=%s", order_id)
+        log_flow_debug(
+            'payment',
+            'Payment processing error',
+            order_id=order_id,
+            error=str(exc),
+        )
+        return Response({'error': str(exc)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     return Response({'error': '无效的请求方法'}, status=status.HTTP_400_BAD_REQUEST)
 

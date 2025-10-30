@@ -139,7 +139,8 @@ def cart_detail(request):
         # 获取当前请求用户的购物车项，并预加载商品信息
         items = CartItem.objects.select_related('goods').filter(
             userInfo=request.user,
-            is_delete=False
+            is_delete=False,
+            goods__isnull=False,
         )
 
         # 使用序列化器处理数据
@@ -269,7 +270,7 @@ def update_cart(request, item_id):
 #                 'status': 'success',
 #                 'message': '订单已创建',
 #                 'order_id': order.id,
-#                 'total_amount': float(total_amount),  # 转换为浮点数，因为模型使用的是 FloatField
+#                 'total_amount': str(total_amount),
 #                 'order_num': order_num,
 #                 'trade_no': trade_no
 #             },

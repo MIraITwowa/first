@@ -1,13 +1,15 @@
 from __future__ import annotations
 
+from decimal import Decimal
+import uuid
+
 from django.db import models
 from django.utils import timezone
 
 from userapp.models import Address, UserInfo
 from goodsapp.models import Goods
 from eventstream.outbox import enqueue_order_event
-
-import uuid
+from crossborder_trade.flow_logging import log_flow_debug
 
 
 # from payment.models import Payment
@@ -17,9 +19,14 @@ class Order(models.Model):
     trade_no = models.CharField(max_length=50, verbose_name="交易编号")
     order_num = models.CharField(max_length=50, verbose_name="订单号")
     status = models.CharField(max_length=50, default='待支付')  # 状态（待支付，待发货，待收货）
-    pay = models.CharField(max_length=50, default='alipay') # 支付方式
-    create_time = models.DateTimeField(auto_now_add=True) # 订单创建时间
-    total_amount = models.FloatField(default=0, verbose_name="总金额")
+    pay = models.CharField(max_length=50, default='alipay')  # 支付方式
+    create_time = models.DateTimeField(auto_now_add=True)  # 订单创建时间
+    total_amount = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        default=Decimal('0.00'),
+        verbose_name="总金额",
+    )
 
     address = models.ForeignKey(Address, on_delete=models.CASCADE)
     userinfo = models.ForeignKey(UserInfo, on_delete=models.CASCADE)
@@ -49,12 +56,29 @@ class Order(models.Model):
             headers=headers or None,
             idempotency_key=f"order:{self.pk}:status:{new_status}:{uuid.uuid4().hex}",
         )
+
+        if any(keyword in new_status for keyword in ('退款', 'refund')):
+            log_flow_debug(
+                'refund',
+                'Order status transitioned to refund state',
+                order_id=self.id,
+                user_id=self.userinfo_id,
+                previous_status=previous_status,
+                new_status=new_status,
+                reason=reason,
+            )
+
         return self
 
 
 class Orderitem(models.Model):
     """订单简述"""
-    count = models.IntegerField(default=0, verbose_name="价格")
+    count = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        default=Decimal('0.00'),
+        verbose_name="价格",
+    )
     quantity = models.PositiveIntegerField(default=1)  # 商品数量
 
     goods = models.ForeignKey(Goods, on_delete=models.CASCADE)

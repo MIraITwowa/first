@@ -180,3 +180,5 @@ cython_debug/
 # 媒体文件和静态文件
 /media/
 /staticfiles/
+# Allow tracked migrations required for schema changes
+!orderapp/migrations/0003_decimal_fields.py

@@ -72,6 +72,31 @@ class PaymentViewTaskTests(TestCase):
         mock_queue.assert_called_once()
         self.assertEqual(mock_queue.call_args.args[0], Payment.objects.latest('id').id)
 
+    @patch('paymentapp.views._queue_payment_success_task')
+    @patch('paymentapp.views.random.random')
+    def test_mock_pay_rejects_amount_mismatch(self, mock_random, mock_queue):
+        response = self.client.post(
+            reverse('mock-pay'),
+            data={'order_id': self.order.id, 'total_amount': '11.00'},
+        )
+        self.assertEqual(response.status_code, 400)
+        mock_random.assert_not_called()
+        mock_queue.assert_not_called()
+        self.order.refresh_from_db()
+        self.assertEqual(self.order.status, '待支付')
+        self.assertIn('expected_amount', response.data)
+        self.assertFalse(Payment.objects.exists())
+
+    @patch('paymentapp.views._queue_payment_success_task')
+    def test_mock_pay_rejects_invalid_amount(self, mock_queue):
+        response = self.client.post(
+            reverse('mock-pay'),
+            data={'order_id': self.order.id, 'total_amount': 'not-a-number'},
+        )
+        self.assertEqual(response.status_code, 400)
+        mock_queue.assert_not_called()
+        self.assertFalse(Payment.objects.exists())
+
 
 class PaymentTaskBehaviourTests(CeleryEagerTestMixin, TestCase):
     def setUp(self):  # type: ignore[override]

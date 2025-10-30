@@ -30,6 +30,8 @@ def env_bool(name: str, default=False) -> bool:
     return os.getenv(name, str(default)).lower() in {"1", "true", "yes", "on"}
 
 
+ENABLE_FLOW_DEBUG = env_bool('ENABLE_FLOW_DEBUG', False)
+
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.1/howto/deployment/checklist/
 
@@ -367,6 +369,62 @@ default_celery_scheduler = (
     else 'celery.beat:PersistentScheduler'
 )
 CELERY_BEAT_SCHEDULER = os.getenv('CELERY_BEAT_SCHEDULER', default_celery_scheduler)
+
+
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'filters': {
+        'flow_debug': {
+            '()': 'crossborder_trade.flow_logging.FlowDebugFilter',
+        },
+    },
+    'formatters': {
+        'standard': {
+            'format': '[%(levelname)s] %(asctime)s %(name)s: %(message)s',
+        },
+        'flow': {
+            'format': '[%(levelname)s] %(asctime)s %(name)s: %(message)s',
+        },
+    },
+    'handlers': {
+        'console': {
+            'class': 'logging.StreamHandler',
+            'formatter': 'standard',
+        },
+        'flow_console': {
+            'class': 'logging.StreamHandler',
+            'formatter': 'flow',
+            'filters': ['flow_debug'],
+        },
+    },
+    'root': {
+        'handlers': ['console'],
+        'level': 'INFO',
+    },
+    'loggers': {
+        'flow.checkout': {
+            'handlers': ['flow_console'],
+            'level': 'INFO',
+            'propagate': False,
+        },
+        'flow.payment': {
+            'handlers': ['flow_console'],
+            'level': 'INFO',
+            'propagate': False,
+        },
+        'flow.refund': {
+            'handlers': ['flow_console'],
+            'level': 'INFO',
+            'propagate': False,
+        },
+        'flow.diagnostics': {
+            'handlers': ['flow_console'],
+            'level': 'INFO',
+            'propagate': False,
+        },
+    },
+}
 
 
 try:

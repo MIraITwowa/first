@@ -36,7 +36,7 @@ def send_order_confirmation_notification(self, order_id: int) -> dict:
         "order_num": order.order_num,
         "user_id": order.userinfo_id,
         "status": order.status,
-        "total_amount": float(order.total_amount),
+        "total_amount": str(order.total_amount),
         "queued_at": queued_at,
     }
 
