@@ -8,21 +8,11 @@ from django.db import transaction
 from django.utils import timezone
 
 from goodsapp.models import Goods
+from eventstream.dispatcher import OutboxDispatcher
+from eventstream.outbox import enqueue_order_event, enqueue_outbox_event
 from .models import Order
 
 logger = get_task_logger(__name__)
-
-try:  # pragma: no cover - defensive fallback when Kafka is not configured
-    from crossborder_trade.kafka_producer import (  # type: ignore
-        send_order_created_message,
-        send_stock_change_message,
-    )
-except Exception:  # pragma: no cover
-    def send_order_created_message(*args, **kwargs):
-        logger.debug("Kafka producer unavailable; skipping order created message.")
-
-    def send_stock_change_message(*args, **kwargs):
-        logger.debug("Kafka producer unavailable; skipping stock change message.")
 
 
 @shared_task(
@@ -40,21 +30,28 @@ def send_order_confirmation_notification(self, order_id: int) -> dict:
         logger.warning("Order %s no longer exists; skipping notification.", order_id)
         return {"order_id": order_id, "status": "missing"}
 
+    queued_at = timezone.now().isoformat()
     payload = {
         "order_id": order.id,
         "order_num": order.order_num,
         "user_id": order.userinfo_id,
         "status": order.status,
         "total_amount": float(order.total_amount),
-        "queued_at": timezone.now().isoformat(),
+        "queued_at": queued_at,
     }
 
-    logger.info("Dispatching order confirmation notification for order %s", order.order_num)
-    try:
-        send_order_created_message(payload)
-    except Exception as exc:  # pragma: no cover - transport errors are non-critical
-        logger.warning("Failed to publish order confirmation message: %s", exc)
+    enqueue_order_event(
+        order,
+        event_type="order.confirmation_queued",
+        payload={
+            "queued_at": queued_at,
+            "notification": "order_confirmation",
+        },
+        headers={"task": "send_order_confirmation_notification"},
+        idempotency_key=f"order:{order.id}:confirmation-notification",
+    )
 
+    logger.info("Queued order confirmation notification for order %s", order.order_num)
     return payload
 
 
@@ -69,6 +66,7 @@ def expire_unpaid_orders(self) -> dict:
     """Expire unpaid orders and restore inventory when necessary."""
     expiration_minutes = getattr(settings, "ORDER_EXPIRATION_MINUTES", 30)
     cutoff = timezone.now() - timedelta(minutes=expiration_minutes)
+    stock_topic = settings.KAFKA_TOPICS.get("stock", "stock-events")
 
     expired_orders = []
     with transaction.atomic():
@@ -82,19 +80,22 @@ def expire_unpaid_orders(self) -> dict:
                 goods: Goods = item.goods
                 goods.stock += item.quantity
                 goods.save(update_fields=["stock"])
-                try:
-                    send_stock_change_message(
-                        {
-                            "goods_id": goods.id,
-                            "new_stock": goods.stock,
-                            "source": f"expired-order-{order.id}",
-                        }
-                    )
-                except Exception as exc:  # pragma: no cover
-                    logger.debug("Failed to publish stock change message: %s", exc)
+                enqueue_outbox_event(
+                    topic=stock_topic,
+                    aggregate_type="goods",
+                    aggregate_id=str(goods.id),
+                    event_type="stock.adjusted",
+                    payload={
+                        "goods_id": goods.id,
+                        "new_stock": goods.stock,
+                        "delta": item.quantity,
+                        "reason": f"expired-order-{order.id}",
+                    },
+                    headers={"source": "orders.expire_unpaid"},
+                    idempotency_key=f"goods:{goods.id}:restored:{order.id}",
+                )
 
-            order.status = '已取消'
-            order.save(update_fields=["status"])
+            order.update_status('已取消', reason='expired')
             expired_orders.append(order.id)
 
     if expired_orders:
@@ -107,7 +108,28 @@ def expire_unpaid_orders(self) -> dict:
 
 
 @shared_task(bind=True)
-def publish_outbox_events(self) -> dict:
-    """Placeholder outbox publisher task to be implemented in the messaging phase."""
-    logger.debug("Outbox publisher placeholder executed; no-op for now.")
-    return {"status": "noop", "timestamp": timezone.now().isoformat()}
+def publish_outbox_events(self, limit: int | None = None) -> dict:
+    """Drain pending outbox events and publish them to Kafka."""
+    batch_size = limit if limit and limit > 0 else None
+    dispatcher = OutboxDispatcher(batch_size=batch_size)
+    result = dispatcher.dispatch_batch()
+    summary = result.to_dict()
+
+    log_message = (
+        "Outbox dispatcher run: locked=%(locked)s sent=%(sent)s retried=%(retri)s dead_lettered=%(dead)s"
+        % {
+            "locked": summary["locked"],
+            "sent": summary["sent"],
+            "retri": summary["retried"],
+            "dead": summary["dead_lettered"],
+        }
+    )
+    if summary["sent"] or summary["retried"] or summary["dead_lettered"]:
+        logger.info(log_message)
+    else:
+        logger.debug(log_message)
+
+    if summary["errors"]:
+        logger.debug("Outbox dispatcher errors: %s", summary["errors"])
+
+    return summary

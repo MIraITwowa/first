@@ -1,10 +1,13 @@
-from django.db import models
+from __future__ import annotations
 
-# Create your models here.
 from django.db import models
+from django.utils import timezone
 
 from userapp.models import Address, UserInfo
 from goodsapp.models import Goods
+from eventstream.outbox import enqueue_order_event
+
+import uuid
 
 
 # from payment.models import Payment
@@ -21,10 +24,31 @@ class Order(models.Model):
     address = models.ForeignKey(Address, on_delete=models.CASCADE)
     userinfo = models.ForeignKey(UserInfo, on_delete=models.CASCADE)
 
-    def update_status(self, new_status):
-        """更新订单状态"""
+    def update_status(self, new_status: str, *, reason: str | None = None) -> "Order":
+        """更新订单状态并记录到事件外盒。"""
+        if new_status == self.status:
+            return self
+
+        previous_status = self.status
         self.status = new_status
-        self.save()
+        self.save(update_fields=["status"])
+
+        payload = {
+            "previous_status": previous_status,
+            "changed_at": timezone.now().isoformat(),
+        }
+        headers = {}
+        if reason:
+            payload["reason"] = reason
+            headers["reason"] = reason
+
+        enqueue_order_event(
+            self,
+            event_type="order.status_changed",
+            payload=payload,
+            headers=headers or None,
+            idempotency_key=f"order:{self.pk}:status:{new_status}:{uuid.uuid4().hex}",
+        )
         return self
 
 

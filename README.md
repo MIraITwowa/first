@@ -41,6 +41,18 @@ Key Celery-related settings:
 | `CELERY_WORKER_CONCURRENCY` | Worker concurrency for local runs | `2` |
 | `CELERY_TASK_ALWAYS_EAGER` | Run tasks synchronously (useful for tests) | `False` |
 
+### Kafka & outbox settings
+
+| Variable | Description | Default |
+| --- | --- | --- |
+| `KAFKA_BOOTSTRAP_SERVERS` | Kafka broker list used by the producer | `localhost:9092` |
+| `KAFKA_CLIENT_ID` | Client identifier used for Kafka connections | `crossborder-trade-api` |
+| `KAFKA_ORDERS_TOPIC` | Topic that receives order domain events | `order-events` |
+| `KAFKA_STOCK_TOPIC` | Topic that receives stock/inventory events | `stock-events` |
+| `KAFKA_PRODUCER_IDEMPOTENCE` | Enables idempotent Kafka producer semantics | `True` |
+| `OUTBOX_DISPATCH_BATCH_SIZE` | Batch size for each Celery dispatch run | `50` |
+| `OUTBOX_MAX_ATTEMPTS` | Maximum delivery attempts before dead-lettering | `5` |
+
 Additional helpful environment flags are documented in `.env.example`, including `FLOWER_PORT` and `KAFKA_BOOTSTRAP_SERVERS` for optional integrations.
 
 ## Running the application
@@ -66,7 +78,7 @@ Start Celery Beat (uses `django-celery-beat` by default):
 celery -A crossborder_trade beat -l info
 ```
 
-Celery Beat ships with placeholder schedules for expiring unpaid orders and an upcoming outbox publisher. Update `ORDER_EXPIRATION_MINUTES` or tune schedules via the Django admin or database entries when required.
+Celery Beat ships with schedules for expiring unpaid orders and for draining the Kafka outbox. Update `ORDER_EXPIRATION_MINUTES` or tune schedules via the Django admin or database entries when required.
 
 ### Flower monitoring
 
@@ -77,6 +89,34 @@ celery -A crossborder_trade flower --port=${FLOWER_PORT:-5555}
 ```
 
 Visit `http://localhost:5555` to inspect task queues, worker health, and retry history.
+
+## Kafka outbox
+
+The `eventstream` Django app implements a transactional outbox for reliable Kafka delivery. Order creation and status transitions insert rows into the `OutboxEvent` table inside the same database transaction. A scheduled Celery task (`orderapp.tasks.publish_outbox_events`) drains pending rows in batches, publishes them with idempotent producer keys, and moves failures to a dead-letter state after the configured number of retries.
+
+Metrics-friendly logs are emitted for each dispatcher run and failing attempts keep their retry schedule via exponential backoff. Inspect the outbox table to understand current delivery status or replay dead-lettered events.
+
+### Running Kafka locally
+
+A lightweight single-node broker is enough for development. The following Docker Compose snippet spins up Kafka in KRaft mode using the Bitnami image:
+
+```yaml
+version: '3.8'
+services:
+  kafka:
+    image: bitnami/kafka:3
+    ports:
+      - "9092:9092"
+    environment:
+      - ALLOW_PLAINTEXT_LISTENER=yes
+      - KAFKA_CFG_PROCESS_ROLES=broker,controller
+      - KAFKA_CFG_NODE_ID=0
+      - KAFKA_CFG_CONTROLLER_QUORUM_VOTERS=0@kafka:9093
+      - KAFKA_CFG_LISTENERS=PLAINTEXT://:9092,CONTROLLER://:9093
+      - KAFKA_CFG_ADVERTISED_LISTENERS=PLAINTEXT://localhost:9092
+```
+
+Save the snippet as `docker-compose.kafka.yml` and run `docker compose -f docker-compose.kafka.yml up`. Point `KAFKA_BOOTSTRAP_SERVERS` at `localhost:9092`, then start the Django server and Celery workers; the outbox dispatcher will publish to Kafka automatically.
 
 ## Testing
 
