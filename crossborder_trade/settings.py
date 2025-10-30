@@ -9,11 +9,26 @@ https://docs.djangoproject.com/en/5.1/topics/settings/
 For the full list of settings and their values, see
 https://docs.djangoproject.com/en/5.1/ref/settings/
 """
+import importlib
 import os
 from pathlib import Path
 
+from crossborder_trade.celery_compat import CELERY_AVAILABLE, crontab
+
+if CELERY_AVAILABLE:
+    from kombu import Exchange, Queue
+else:  # pragma: no cover - kombu is optional when Celery isn't installed yet
+    Exchange = Queue = None
+
+DJANGO_CELERY_BEAT_AVAILABLE = importlib.util.find_spec('django_celery_beat') is not None
+
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
+
+
+def env_bool(name: str, default=False) -> bool:
+    return os.getenv(name, str(default)).lower() in {"1", "true", "yes", "on"}
+
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.1/howto/deployment/checklist/
@@ -47,6 +62,9 @@ INSTALLED_APPS = [
     # 跨域处理
     'corsheaders',
 ]
+
+if DJANGO_CELERY_BEAT_AVAILABLE:
+    INSTALLED_APPS.append('django_celery_beat')
 
 MIDDLEWARE = [
 
@@ -92,10 +110,11 @@ CORS_ALLOW_METHODS = (
 # 跨域配置结束
 
 # 配置缓存开始
+REDIS_CACHE_URL = os.getenv('REDIS_CACHE_URL', os.getenv('REDIS_URL', 'redis://127.0.0.1:6379/1'))
 CACHES = {
     "default": {
         "BACKEND": "django_redis.cache.RedisCache",
-        "LOCATION": "redis://127.0.0.1:6379/1",
+        "LOCATION": REDIS_CACHE_URL,
         "OPTIONS": {
             "CLIENT_CLASS": "django_redis.client.DefaultClient",
         }
@@ -237,6 +256,95 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 # 支付环节配置
 # 模拟支付配置
 MOCK_PAYMENT_SUCCESS_RATE = 0.8  # 模拟支付成功的概率（80%）
+
+# Kafka 默认配置，便于本地开发
+KAFKA_BOOTSTRAP_SERVERS = os.getenv('KAFKA_BOOTSTRAP_SERVERS', 'localhost:9092')
+
+# Celery / 异步任务配置
+ORDER_EXPIRATION_MINUTES = int(os.getenv('ORDER_EXPIRATION_MINUTES', '30'))
+
+CELERY_BROKER_URL = os.getenv('CELERY_BROKER_URL', 'redis://127.0.0.1:6379/0')
+CELERY_RESULT_BACKEND = os.getenv('CELERY_RESULT_BACKEND', 'redis://127.0.0.1:6379/1')
+CELERY_ACCEPT_CONTENT = ['json']
+CELERY_TASK_SERIALIZER = 'json'
+CELERY_RESULT_SERIALIZER = 'json'
+CELERY_TIMEZONE = os.getenv('CELERY_TIMEZONE', 'UTC')
+CELERY_ENABLE_UTC = True
+
+CELERY_BASE_QUEUE = os.getenv('CELERY_DEFAULT_QUEUE', 'default')
+CELERY_ORDERS_QUEUE = os.getenv('CELERY_ORDERS_QUEUE', 'orders')
+CELERY_PAYMENTS_QUEUE = os.getenv('CELERY_PAYMENTS_QUEUE', 'payments')
+CELERY_NOTIFICATIONS_QUEUE = os.getenv('CELERY_NOTIFICATIONS_QUEUE', 'notifications')
+
+CELERY_TASK_DEFAULT_QUEUE = CELERY_BASE_QUEUE
+CELERY_TASK_DEFAULT_EXCHANGE = CELERY_BASE_QUEUE
+CELERY_TASK_DEFAULT_EXCHANGE_TYPE = 'direct'
+CELERY_TASK_DEFAULT_ROUTING_KEY = CELERY_BASE_QUEUE
+if CELERY_AVAILABLE and Queue is not None and Exchange is not None:
+    CELERY_TASK_QUEUES = (
+        Queue(CELERY_BASE_QUEUE, Exchange(CELERY_BASE_QUEUE), routing_key=CELERY_BASE_QUEUE),
+        Queue(CELERY_ORDERS_QUEUE, Exchange(CELERY_ORDERS_QUEUE), routing_key=CELERY_ORDERS_QUEUE),
+        Queue(CELERY_PAYMENTS_QUEUE, Exchange(CELERY_PAYMENTS_QUEUE), routing_key=CELERY_PAYMENTS_QUEUE),
+        Queue(
+            CELERY_NOTIFICATIONS_QUEUE,
+            Exchange(CELERY_NOTIFICATIONS_QUEUE),
+            routing_key=CELERY_NOTIFICATIONS_QUEUE,
+        ),
+    )
+else:  # pragma: no cover - simplifies settings when Celery isn't available yet
+    CELERY_TASK_QUEUES = (
+        {"name": CELERY_BASE_QUEUE},
+        {"name": CELERY_ORDERS_QUEUE},
+        {"name": CELERY_PAYMENTS_QUEUE},
+        {"name": CELERY_NOTIFICATIONS_QUEUE},
+    )
+CELERY_TASK_ROUTES = {
+    'orderapp.tasks.send_order_confirmation_notification': {
+        'queue': CELERY_NOTIFICATIONS_QUEUE,
+        'routing_key': CELERY_NOTIFICATIONS_QUEUE,
+    },
+    'orderapp.tasks.expire_unpaid_orders': {
+        'queue': CELERY_ORDERS_QUEUE,
+        'routing_key': CELERY_ORDERS_QUEUE,
+    },
+    'orderapp.tasks.publish_outbox_events': {
+        'queue': CELERY_NOTIFICATIONS_QUEUE,
+        'routing_key': CELERY_NOTIFICATIONS_QUEUE,
+    },
+    'paymentapp.tasks.handle_successful_payment': {
+        'queue': CELERY_PAYMENTS_QUEUE,
+        'routing_key': CELERY_PAYMENTS_QUEUE,
+    },
+}
+
+CELERY_TASK_ACKS_LATE = True
+CELERY_TASK_TRACK_STARTED = True
+CELERY_TASK_DEFAULT_RETRY_DELAY = int(os.getenv('CELERY_TASK_DEFAULT_RETRY_DELAY', '30'))
+CELERY_TASK_SOFT_TIME_LIMIT = int(os.getenv('CELERY_TASK_SOFT_TIME_LIMIT', '180'))
+CELERY_TASK_TIME_LIMIT = int(os.getenv('CELERY_TASK_TIME_LIMIT', '300'))
+CELERY_WORKER_CONCURRENCY = int(os.getenv('CELERY_WORKER_CONCURRENCY', '4'))
+CELERY_WORKER_PREFETCH_MULTIPLIER = int(os.getenv('CELERY_WORKER_PREFETCH_MULTIPLIER', '1'))
+CELERY_BROKER_CONNECTION_RETRY_ON_STARTUP = True
+CELERY_TASK_ALWAYS_EAGER = env_bool('CELERY_TASK_ALWAYS_EAGER', False)
+CELERY_TASK_EAGER_PROPAGATES = env_bool('CELERY_TASK_EAGER_PROPAGATES', True)
+CELERY_BEAT_SCHEDULE = {
+    'expire-unpaid-orders': {
+        'task': 'orderapp.tasks.expire_unpaid_orders',
+        'schedule': crontab(minute='*/15'),
+        'options': {'queue': CELERY_ORDERS_QUEUE},
+    },
+    'publish-outbox-events': {
+        'task': 'orderapp.tasks.publish_outbox_events',
+        'schedule': crontab(minute='*/5'),
+        'options': {'queue': CELERY_NOTIFICATIONS_QUEUE},
+    },
+}
+default_celery_scheduler = (
+    'django_celery_beat.schedulers:DatabaseScheduler'
+    if DJANGO_CELERY_BEAT_AVAILABLE
+    else 'celery.beat:PersistentScheduler'
+)
+CELERY_BEAT_SCHEDULER = os.getenv('CELERY_BEAT_SCHEDULER', default_celery_scheduler)
 
 
 try:

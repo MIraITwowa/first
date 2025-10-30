@@ -9,7 +9,23 @@ from django.conf import settings
 from .models import Payment
 from .serializers import PaymentSerializer, PaymentSuccessSerializer
 from orderapp.models import Order
+import logging
 import random
+
+logger = logging.getLogger(__name__)
+
+
+def _queue_payment_success_task(payment_id: int) -> None:
+    try:
+        from .tasks import handle_successful_payment
+    except ModuleNotFoundError:
+        logger.warning("未安装 Celery，无法调度支付成功任务。")
+        return
+
+    try:
+        handle_successful_payment.delay(payment_id)
+    except Exception as exc:  # pragma: no cover - Celery misconfiguration fallback
+        logger.warning("支付后处理任务入队失败: %s", exc)
 
 
 @api_view(['POST'])
@@ -43,14 +59,17 @@ def mock_pay(request):
 
             if serializer.is_valid():
                 payment = serializer.save()
+                payment.status = payment_status
+                payment.save(update_fields=['status'])
 
-                # 如果支付成功，更新订单状态
                 if payment_status == 'success':
                     order.update_status('待发货')
+                    _queue_payment_success_task(payment.id)
+
                     return Response({
                         'message': '支付成功',
                         'payment_id': payment.id,
-                        'order_status': '待发货'
+                        'order_status': order.status
                     }, status=status.HTTP_200_OK)
                 else:
                     return Response({
@@ -91,6 +110,8 @@ def mock_notify(request):
             # 更新支付状态
             payment.status = 'success'
             payment.save()
+
+            _queue_payment_success_task(payment.id)
 
             # 更新订单状态
             order = payment.order
