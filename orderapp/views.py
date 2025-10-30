@@ -4,11 +4,13 @@ from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.views import APIView
 from django.shortcuts import get_object_or_404
+from django.db import transaction
 
 from .models import Order, Orderitem
 from .serializers import OrderSerializer, OrderitemSerializer
 from cartapp.models import CartItem  # 从 cartapp 导入 CartItem
 from userapp.models import Address, RealName  # 从 userapp 导入 Address
+from eventstream.outbox import enqueue_order_event
 
 from django.utils import timezone
 import logging
@@ -164,34 +166,57 @@ class CheckoutAPIView(APIView):
             # 计算总价
             total_amount = sum(item.num * item.goods.price for item in cart_items)
 
-            # 创建订单 - 使用正确的字段名
-            order = Order.objects.create(
-                userinfo=request.user,  # 使用模型中定义的 userinfo 字段
-                address=address,
-                order_num=order_num,
-                trade_no=trade_no,
-                total_amount=total_amount,
-                status='待支付',
-                pay='alipay'  # 默认支付方式
-            )
-
-            # 批量创建订单项 - 使用正确的字段名
-            order_items = []
-            for item in cart_items:
-                order_items.append(
-                    Orderitem(
-                        order=order,
-                        goods=item.goods,
-                        quantity=item.num,  # 使用 quantity 字段存储数量
-                        count=item.goods.price  # 使用 count 字段存储价格
-                    )
+            line_items_payload = []
+            with transaction.atomic():
+                # 创建订单 - 使用正确的字段名
+                order = Order.objects.create(
+                    userinfo=request.user,  # 使用模型中定义的 userinfo 字段
+                    address=address,
+                    order_num=order_num,
+                    trade_no=trade_no,
+                    total_amount=total_amount,
+                    status='待支付',
+                    pay='alipay'  # 默认支付方式
                 )
-            Orderitem.objects.bulk_create(order_items)
 
-            # 标记购物车项为已删除
-            cart_items.update(is_delete=True)
+                # 批量创建订单项 - 使用正确的字段名
+                order_items = []
+                for item in cart_items:
+                    order_items.append(
+                        Orderitem(
+                            order=order,
+                            goods=item.goods,
+                            quantity=item.num,  # 使用 quantity 字段存储数量
+                            count=item.goods.price  # 使用 count 字段存储价格
+                        )
+                    )
+                    line_items_payload.append(
+                        {
+                            'goods_id': item.goods_id,
+                            'quantity': item.num,
+                            'unit_price': float(item.goods.price),
+                            'line_total': float(item.num * item.goods.price),
+                        }
+                    )
+                Orderitem.objects.bulk_create(order_items)
 
-            _queue_order_confirmation_task(order.id)
+                # 标记购物车项为已删除
+                cart_items.update(is_delete=True)
+
+                enqueue_order_event(
+                    order,
+                    event_type='order.created',
+                    payload={
+                        'items': line_items_payload,
+                        'source': 'checkout.api',
+                    },
+                    headers={'initiator': 'checkout.api'},
+                    idempotency_key=f'order:{order.id}:created',
+                )
+
+                transaction.on_commit(
+                    lambda order_id=order.id: _queue_order_confirmation_task(order_id)
+                )
 
             return Response(
                 {

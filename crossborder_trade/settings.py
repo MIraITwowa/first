@@ -59,6 +59,7 @@ INSTALLED_APPS = [
     'orderapp.apps.OrderappConfig',
     'cartapp.apps.CartappConfig',
     'paymentapp.apps.PaymentappConfig',
+    'eventstream.apps.EventstreamConfig',
     # 跨域处理
     'corsheaders',
 ]
@@ -259,6 +260,27 @@ MOCK_PAYMENT_SUCCESS_RATE = 0.8  # 模拟支付成功的概率（80%）
 
 # Kafka 默认配置，便于本地开发
 KAFKA_BOOTSTRAP_SERVERS = os.getenv('KAFKA_BOOTSTRAP_SERVERS', 'localhost:9092')
+KAFKA_CLIENT_ID = os.getenv('KAFKA_CLIENT_ID', 'crossborder-trade-api')
+KAFKA_PRODUCER_ACKS = os.getenv('KAFKA_PRODUCER_ACKS', 'all')
+KAFKA_PRODUCER_RETRIES = int(os.getenv('KAFKA_PRODUCER_RETRIES', '5'))
+KAFKA_PRODUCER_LINGER_MS = int(os.getenv('KAFKA_PRODUCER_LINGER_MS', '10'))
+KAFKA_PRODUCER_MAX_IN_FLIGHT = int(os.getenv('KAFKA_PRODUCER_MAX_IN_FLIGHT', '5'))
+KAFKA_PRODUCER_IDEMPOTENCE = env_bool('KAFKA_PRODUCER_IDEMPOTENCE', True)
+KAFKA_PRODUCER_COMPRESSION = os.getenv('KAFKA_PRODUCER_COMPRESSION', 'zstd')
+KAFKA_TOPICS = {
+    'orders': os.getenv('KAFKA_ORDERS_TOPIC', 'order-events'),
+    'stock': os.getenv('KAFKA_STOCK_TOPIC', 'stock-events'),
+}
+KAFKA_PRODUCER_CONFIG = {
+    'compression_type': KAFKA_PRODUCER_COMPRESSION,
+}
+
+# Outbox 调度和重试配置
+OUTBOX_MAX_ATTEMPTS = int(os.getenv('OUTBOX_MAX_ATTEMPTS', '5'))
+OUTBOX_DISPATCH_BATCH_SIZE = int(os.getenv('OUTBOX_DISPATCH_BATCH_SIZE', '50'))
+OUTBOX_RETRY_BASE_SECONDS = int(os.getenv('OUTBOX_RETRY_BASE_SECONDS', '30'))
+OUTBOX_MAX_BACKOFF_SECONDS = int(os.getenv('OUTBOX_MAX_BACKOFF_SECONDS', '600'))
+OUTBOX_PRODUCER_SEND_TIMEOUT = int(os.getenv('OUTBOX_PRODUCER_SEND_TIMEOUT', '10'))
 
 # Celery / 异步任务配置
 ORDER_EXPIRATION_MINUTES = int(os.getenv('ORDER_EXPIRATION_MINUTES', '30'))

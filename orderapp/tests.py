@@ -13,6 +13,7 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from cartapp.models import CartItem
 from goodsapp.models import Category, Goods
 from userapp.models import Address, RealName, UserInfo
+from eventstream.models import OutboxEvent
 from .models import Order, Orderitem
 from .tasks import expire_unpaid_orders, send_order_confirmation_notification
 from crossborder_trade.celery_compat import CELERY_AVAILABLE
@@ -91,6 +92,11 @@ class CheckoutTaskEnqueueTests(TestCase):
         mock_queue.assert_called_once()
         self.assertEqual(mock_queue.call_args.args[0], response.data['order_id'])
 
+        outbox_events = OutboxEvent.objects.filter(
+            event_type='order.created', aggregate_id=str(response.data['order_id'])
+        )
+        self.assertTrue(outbox_events.exists())
+
 
 class OrderCeleryTaskTests(CeleryEagerTestMixin, TestCase):
     def setUp(self):  # type: ignore[override]
@@ -129,15 +135,26 @@ class OrderCeleryTaskTests(CeleryEagerTestMixin, TestCase):
             count=int(self.goods.price),
         )
 
-    @patch('orderapp.tasks.send_order_created_message')
-    def test_order_confirmation_task_runs(self, mock_kafka):
+    def test_order_confirmation_task_runs(self):
         result = send_order_confirmation_notification.delay(self.order.id)
         payload = result.get()
         self.assertEqual(payload['order_id'], self.order.id)
-        mock_kafka.assert_called_once()
 
-    @patch('orderapp.tasks.send_stock_change_message')
-    def test_expire_unpaid_orders_updates_status(self, mock_stock):
+        events = OutboxEvent.objects.filter(
+            event_type='order.confirmation_queued', aggregate_id=str(self.order.id)
+        )
+        self.assertEqual(events.count(), 1)
+
+    def test_order_confirmation_task_idempotent(self):
+        send_order_confirmation_notification.delay(self.order.id).get()
+        send_order_confirmation_notification.delay(self.order.id).get()
+
+        events = OutboxEvent.objects.filter(
+            event_type='order.confirmation_queued', aggregate_id=str(self.order.id)
+        )
+        self.assertEqual(events.count(), 1)
+
+    def test_expire_unpaid_orders_updates_status(self):
         self.order.create_time = timezone.now() - timedelta(minutes=60)
         self.order.save(update_fields=['create_time'])
 
@@ -148,4 +165,53 @@ class OrderCeleryTaskTests(CeleryEagerTestMixin, TestCase):
         self.assertIn(self.order.id, result['expired_orders'])
         self.assertEqual(self.order.status, '已取消')
         self.assertEqual(self.goods.stock, 2)
-        mock_stock.assert_called()
+
+        stock_events = OutboxEvent.objects.filter(
+            event_type='stock.adjusted', aggregate_id=str(self.goods.id)
+        )
+        status_events = OutboxEvent.objects.filter(
+            event_type='order.status_changed', aggregate_id=str(self.order.id)
+        )
+        self.assertTrue(stock_events.exists())
+        self.assertTrue(status_events.exists())
+
+
+class OrderOutboxEventTests(TestCase):
+    def setUp(self):
+        self.user = UserInfo.objects.create_user(
+            account='status@example.com', password='pass1234', username='status-user'
+        )
+        self.address = Address.objects.create(
+            aname='status-user',
+            aphone='10987654321',
+            addr='Status Street',
+            aUserInfo=self.user,
+        )
+        category = Category.objects.create(cname='Accessories')
+        self.goods = Goods.objects.create(
+            gname='Charger',
+            gdesc='Phone charger',
+            price=Decimal('19.99'),
+            category=category,
+            brand='BrandZ',
+            stock=10,
+            sales=0,
+        )
+        self.order = Order.objects.create(
+            userinfo=self.user,
+            address=self.address,
+            order_num='ORD654321',
+            trade_no='TRADE654321',
+            total_amount=Decimal('19.99'),
+            status='待支付',
+        )
+
+    def test_status_change_creates_outbox_event(self):
+        self.order.update_status('待发货', reason='payment-confirmed')
+
+        event = OutboxEvent.objects.filter(
+            event_type='order.status_changed', aggregate_id=str(self.order.id)
+        ).first()
+        self.assertIsNotNone(event)
+        self.assertEqual(event.payload['previous_status'], '待支付')
+        self.assertEqual(event.payload['reason'], 'payment-confirmed')
