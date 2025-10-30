@@ -11,7 +11,24 @@ from cartapp.models import CartItem  # 从 cartapp 导入 CartItem
 from userapp.models import Address, RealName  # 从 userapp 导入 Address
 
 from django.utils import timezone
+import logging
 import uuid
+
+
+logger = logging.getLogger(__name__)
+
+
+def _queue_order_confirmation_task(order_id: int) -> None:
+    try:
+        from .tasks import send_order_confirmation_notification
+    except ModuleNotFoundError:
+        logger.warning("未安装 Celery，无法发送订单通知任务。")
+        return
+
+    try:
+        send_order_confirmation_notification.delay(order_id)
+    except Exception as exc:  # pragma: no cover - Celery misconfiguration fallback
+        logger.warning("订单通知任务入队失败: %s", exc)
 
 
 class CheckoutAPIView(APIView):
@@ -173,6 +190,8 @@ class CheckoutAPIView(APIView):
 
             # 标记购物车项为已删除
             cart_items.update(is_delete=True)
+
+            _queue_order_confirmation_task(order.id)
 
             return Response(
                 {
