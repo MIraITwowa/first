@@ -2,25 +2,59 @@
 
 A Django 5 based backend that powers a cross-border e-commerce platform. The system exposes a REST API for user management, product browsing, carts, orders, and payments. Background workloads are handled with Celery workers backed by Redis, with scheduled jobs provided by Celery Beat and operational monitoring via Flower.
 
-## Requirements
+## 🚀 Quick Start
 
-Install the project dependencies with pip (a Python 3.12+ virtual environment is recommended):
+The fastest way to get started is with Docker Compose:
 
+```bash
+# Clone and setup
+git clone <repository-url>
+cd crossborder-trade
+cp .env.example .env
+
+# Start all services (MySQL, Redis, Kafka, Django, Celery, Flower)
+make up
+
+# Access the application
+# API: http://localhost:8000
+# API Docs: http://localhost:8000/api/docs/
+# Admin: http://localhost:8000/admin/
+# Flower: http://localhost:5555
+```
+
+The first run will automatically:
+- Create and migrate the database
+- Create an admin superuser (admin/admin123)
+- Seed sample data (optional: `make seed`)
+
+## 📋 Requirements
+
+### Core Dependencies
+- **Python 3.12+** - Runtime environment
+- **Django 5.1** - Web framework
+- **Django REST Framework** - API framework
+- **MySQL 8.0** - Primary database
+- **Redis 7** - Cache and message broker
+- **Apache Kafka** - Event streaming
+- **Celery** - Background task processing
+
+### Python Packages
 ```bash
 pip install -r requirements.txt
 ```
 
-Core dependencies include:
+Key packages include:
+- `django>=5.1,<6.0` - Core framework
+- `djangorestframework>=3.15` - REST API
+- `djangorestframework-simplejwt>=5.3` - JWT authentication
+- `mysqlclient>=2.2` - MySQL driver
+- `celery>=5.4` - Task queue
+- `redis>=5.0` - Redis client
+- `kafka-python>=2.0` - Kafka client
+- `drf-spectacular>=0.27.0` - OpenAPI documentation
+- `django-environ>=0.11.2` - Environment configuration
 
-- Django 5
-- Django REST Framework and Simple JWT
-- Celery with Redis transport
-- django-celery-beat for schedules
-- Flower for worker monitoring
-
-Redis is required for the Celery broker/result backend. MySQL powers the relational database, and Kafka is used for event streaming (optional in local development).
-
-## Environment configuration
+## ⚙️ Environment Configuration
 
 Copy the provided `.env.example` file to `.env` and adjust values as needed:
 
@@ -28,7 +62,33 @@ Copy the provided `.env.example` file to `.env` and adjust values as needed:
 cp .env.example .env
 ```
 
-Key Celery-related settings:
+### Required Environment Variables
+
+| Variable | Description | Default |
+| --- | --- | --- |
+| `DJANGO_SECRET_KEY` | Django secret key (change in production!) | `change-me-in-production-use-long-random-string` |
+| `DJANGO_DEBUG` | Enable debug mode | `True` |
+| `DJANGO_ALLOWED_HOSTS` | Comma-separated allowed hosts | `localhost,127.0.0.1` |
+| `DB_HOST` | MySQL database host | `127.0.0.1` |
+| `DB_NAME` | Database name | `crossborder_trade` |
+| `DB_USER` | Database username | `root` |
+| `DB_PASSWORD` | Database password | `2642` |
+| `REDIS_URL` | Redis connection URL | `redis://127.0.0.1:6379/0` |
+
+### Optional Environment Variables
+
+| Variable | Description | Default |
+| --- | --- | --- |
+| `JWT_SIGNING_KEY` | JWT signing key (separate from Django secret) | `None` |
+| `KAFKA_BOOTSTRAP_SERVERS` | Kafka broker list | `localhost:9092` |
+| `KAFKA_ENABLED` | Enable Kafka integration | `True` |
+| `CREATE_SUPERUSER` | Auto-create superuser on startup | `False` |
+| `SUPERUSER_USERNAME` | Superuser username | `admin` |
+| `SUPERUSER_PASSWORD` | Superuser password | `admin123` |
+| `LOG_LEVEL` | Application log level | `INFO` |
+| `LOG_FORMAT` | Log format (`console` or `json`) | `console` |
+
+### Celery Configuration
 
 | Variable | Description | Default |
 | --- | --- | --- |
@@ -38,10 +98,9 @@ Key Celery-related settings:
 | `CELERY_ORDERS_QUEUE` | Queue for order life-cycle tasks | `orders` |
 | `CELERY_PAYMENTS_QUEUE` | Queue for payment processing tasks | `payments` |
 | `CELERY_NOTIFICATIONS_QUEUE` | Queue for notification fan-out | `notifications` |
-| `CELERY_WORKER_CONCURRENCY` | Worker concurrency for local runs | `2` |
-| `CELERY_TASK_ALWAYS_EAGER` | Run tasks synchronously (useful for tests) | `False` |
+| `CELERY_WORKER_CONCURRENCY` | Worker concurrency for local runs | `4` |
 
-### Kafka & outbox settings
+### Kafka & Outbox Settings
 
 | Variable | Description | Default |
 | --- | --- | --- |
@@ -53,83 +112,233 @@ Key Celery-related settings:
 | `OUTBOX_DISPATCH_BATCH_SIZE` | Batch size for each Celery dispatch run | `50` |
 | `OUTBOX_MAX_ATTEMPTS` | Maximum delivery attempts before dead-lettering | `5` |
 
-Additional helpful environment flags are documented in `.env.example`, including `FLOWER_PORT` and `KAFKA_BOOTSTRAP_SERVERS` for optional integrations.
+## 🏃‍♂️ Running the Application
 
-## Running the application
+### Option 1: Docker Compose (Recommended)
 
-1. Apply database migrations and create a superuser if needed.
-2. Start the Django development server:
+```bash
+# Start all services
+make up
 
+# View logs
+make logs
+
+# Stop all services
+make down
+
+# Check service status
+make status
+```
+
+### Option 2: Local Development
+
+1. Install dependencies and setup environment:
    ```bash
-   python manage.py runserver
+   make setup
    ```
 
-### Celery workers & schedulers
+2. Start required services (MySQL, Redis, Kafka) manually or use Docker for dependencies.
 
-Run the Celery worker pointing at this Django project:
+3. Run database migrations:
+   ```bash
+   make migrate
+   ```
 
-```bash
-celery -A crossborder_trade worker -Q default,orders,payments,notifications -l info
-```
+4. Create superuser:
+   ```bash
+   make createsuperuser
+   ```
 
-Start Celery Beat (uses `django-celery-beat` by default):
+5. Seed sample data:
+   ```bash
+   make seed
+   ```
 
-```bash
-celery -A crossborder_trade beat -l info
-```
+6. Start the Django development server:
+   ```bash
+   make dev
+   ```
 
-Celery Beat ships with schedules for expiring unpaid orders and for draining the Kafka outbox. Update `ORDER_EXPIRATION_MINUTES` or tune schedules via the Django admin or database entries when required.
-
-### Flower monitoring
-
-Flower provides a lightweight UI for monitoring Celery workers:
-
-```bash
-celery -A crossborder_trade flower --port=${FLOWER_PORT:-5555}
-```
-
-Visit `http://localhost:5555` to inspect task queues, worker health, and retry history.
-
-## Kafka outbox
-
-The `eventstream` Django app implements a transactional outbox for reliable Kafka delivery. Order creation and status transitions insert rows into the `OutboxEvent` table inside the same database transaction. A scheduled Celery task (`orderapp.tasks.publish_outbox_events`) drains pending rows in batches, publishes them with idempotent producer keys, and moves failures to a dead-letter state after the configured number of retries.
-
-Metrics-friendly logs are emitted for each dispatcher run and failing attempts keep their retry schedule via exponential backoff. Inspect the outbox table to understand current delivery status or replay dead-lettered events.
-
-### Running Kafka locally
-
-A lightweight single-node broker is enough for development. The following Docker Compose snippet spins up Kafka in KRaft mode using the Bitnami image:
-
-```yaml
-version: '3.8'
-services:
-  kafka:
-    image: bitnami/kafka:3
-    ports:
-      - "9092:9092"
-    environment:
-      - ALLOW_PLAINTEXT_LISTENER=yes
-      - KAFKA_CFG_PROCESS_ROLES=broker,controller
-      - KAFKA_CFG_NODE_ID=0
-      - KAFKA_CFG_CONTROLLER_QUORUM_VOTERS=0@kafka:9093
-      - KAFKA_CFG_LISTENERS=PLAINTEXT://:9092,CONTROLLER://:9093
-      - KAFKA_CFG_ADVERTISED_LISTENERS=PLAINTEXT://localhost:9092
-```
-
-Save the snippet as `docker-compose.kafka.yml` and run `docker compose -f docker-compose.kafka.yml up`. Point `KAFKA_BOOTSTRAP_SERVERS` at `localhost:9092`, then start the Django server and Celery workers; the outbox dispatcher will publish to Kafka automatically.
-
-## Testing
-
-Celery tasks default to asynchronous execution. Tests can enable eager mode via the `CELERY_TASK_ALWAYS_EAGER` setting or by using the test mixins provided in the suite. Run the Django tests with:
+### Option 3: Individual Services
 
 ```bash
-python manage.py test
+# Start Django server
+python manage.py runserver
+
+# Start Celery worker
+make worker
+
+# Start Celery beat scheduler
+make beat
+
+# Start Flower monitoring
+make flower
 ```
 
-## Troubleshooting
+## 📊 API Documentation
 
-- **Tasks do not execute:** Confirm Redis is running and the broker URL matches your environment. Worker logs should show successful connection attempts.
-- **Stuck or repeated tasks:** Inspect the relevant queue in Flower and ensure worker concurrency/ack settings are sized appropriately.
-- **Kafka not available:** The project gracefully skips Kafka notifications when brokers are unreachable; configure `KAFKA_BOOTSTRAP_SERVERS` for full functionality.
+The application exposes comprehensive API documentation:
 
-For deployment, ensure secrets and environment variables are configured securely and that dedicated worker, beat, and Flower processes are supervised by your process manager of choice.
+- **Swagger UI**: http://localhost:8000/api/docs/
+- **ReDoc**: http://localhost:8000/api/redoc/
+- **OpenAPI Schema**: http://localhost:8000/api/schema/
+
+### Health Check Endpoints
+
+- **Basic Health**: http://localhost:8000/healthz/
+- **Readiness Check**: http://localhost:8000/healthz/ready
+- **Celery Health**: http://localhost:8000/healthz/celery
+
+## 🛠️ Development Tools
+
+### Management Commands
+
+```bash
+# Create superuser automatically
+python manage.py create_superuser_if_not_exists
+
+# Seed sample data
+python manage.py seed_data
+
+# Database operations
+make migrate          # Run migrations
+make createsuperuser  # Create admin user
+make seed            # Load sample data
+make reset-db        # Reset and reseed database (dev only)
+```
+
+### Monitoring
+
+- **Flower**: http://localhost:5555 - Celery task monitoring
+- **Health Checks**: Built-in health endpoints for service monitoring
+- **Logs**: Structured logging with JSON format support
+
+## 📦 Architecture Overview
+
+### Core Components
+
+1. **Django Web Server** - Handles HTTP requests and API endpoints
+2. **MySQL Database** - Primary data storage
+3. **Redis** - Caching and Celery message broker
+4. **Kafka** - Event streaming for order and stock events
+5. **Celery Workers** - Background task processing
+6. **Celery Beat** - Scheduled task execution
+7. **Flower** - Task monitoring dashboard
+
+### Application Modules
+
+- **userapp**: User management, authentication, addresses
+- **goodsapp**: Product catalog and categories
+- **cartapp**: Shopping cart functionality
+- **orderapp**: Order processing and lifecycle
+- **paymentapp**: Payment processing
+- **eventstream**: Kafka outbox pattern implementation
+- **health**: Health check endpoints
+
+## 🧪 Testing
+
+### Running Tests
+
+```bash
+# Run all tests
+make test
+
+# Run specific test modules
+python manage.py test userapp.tests
+python manage.py test goodsapp.tests
+```
+
+### Test Configuration
+
+Tests use SQLite in-memory database for speed. Set `CELERY_TASK_ALWAYS_EAGER=True` in test settings to run tasks synchronously.
+
+## 🔧 Troubleshooting
+
+### Common Issues
+
+**Database Connection Issues**
+```bash
+# Check database connectivity
+make db-shell
+
+# Reset database
+make reset-db
+```
+
+**Celery Workers Not Processing Tasks**
+```bash
+# Check worker status
+make logs-worker
+
+# Restart workers
+docker compose restart worker
+```
+
+**Kafka Connection Issues**
+```bash
+# Check Kafka logs
+docker compose logs kafka
+
+# Verify Kafka topics
+docker compose exec kafka kafka-topics --bootstrap-server localhost:9092 --list
+```
+
+**Service Health**
+```bash
+# Check all service status
+make status
+
+# Check individual service logs
+make logs-web
+make logs-db
+```
+
+### Performance Tuning
+
+- **Database**: Use connection pooling, optimize queries
+- **Redis**: Enable persistence for production
+- **Celery**: Adjust worker concurrency based on CPU cores
+- **Kafka**: Tune batch sizes and compression
+
+## 🚀 Deployment
+
+### Production Considerations
+
+1. **Security**
+   - Use strong, unique `DJANGO_SECRET_KEY` and `JWT_SIGNING_KEY`
+   - Set `DJANGO_DEBUG=False`
+   - Configure proper `ALLOWED_HOSTS`
+   - Use HTTPS in production
+
+2. **Database**
+   - Use MySQL with proper replication
+   - Regular backups
+   - Connection pooling
+
+3. **Caching**
+   - Redis with persistence
+   - Proper memory allocation
+   - Monitoring
+
+4. **Monitoring**
+   - Health checks
+   - Log aggregation
+   - Metrics collection
+
+### Docker Production Deployment
+
+```bash
+# Build production images
+make build
+
+# Deploy with production settings
+docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+```
+
+## 📚 Additional Resources
+
+- [Django Documentation](https://docs.djangoproject.com/)
+- [Django REST Framework](https://www.django-rest-framework.org/)
+- [Celery Documentation](https://docs.celeryproject.org/)
+- [Redis Documentation](https://redis.io/documentation)
+- [Apache Kafka Documentation](https://kafka.apache.org/documentation/)
