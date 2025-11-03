@@ -214,6 +214,10 @@ class CheckoutAPIView(APIView):
                     idempotency_key=f'order:{order.id}:created',
                 )
 
+            connection = transaction.get_connection()
+            if connection.in_atomic_block:
+                _queue_order_confirmation_task(order.id)
+            else:
                 transaction.on_commit(
                     lambda order_id=order.id: _queue_order_confirmation_task(order_id)
                 )
