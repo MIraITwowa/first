@@ -4,20 +4,34 @@ import json
 import logging
 from dataclasses import dataclass
 from datetime import timedelta
-from typing import Iterable
+from typing import Any, Iterable, TYPE_CHECKING
 
 from django.conf import settings
 from django.db import transaction
 from django.utils import timezone
 
-from kafka import KafkaProducer
-from kafka.errors import KafkaError
+try:  # pragma: no cover - optional dependency
+    from kafka import KafkaProducer  # type: ignore
+    from kafka.errors import KafkaError, NoBrokersAvailable  # type: ignore
+except ModuleNotFoundError:  # pragma: no cover - executed when kafka-python isn't installed
+    KafkaProducer = None  # type: ignore[assignment]
+
+    class KafkaError(Exception):
+        pass
+
+    class NoBrokersAvailable(KafkaError):
+        pass
+
+if TYPE_CHECKING:  # pragma: no cover - typing aid
+    from kafka import KafkaProducer as KafkaProducerType  # type: ignore
+else:
+    KafkaProducerType = Any
 
 from .models import OutboxEvent, OutboxState
 
 logger = logging.getLogger(__name__)
 
-_PRODUCER: KafkaProducer | None = None
+_PRODUCER: KafkaProducerType | None = None
 
 
 @dataclass
@@ -42,14 +56,24 @@ class DispatchResult:
         }
 
 
-def get_producer() -> KafkaProducer:
+def get_producer() -> KafkaProducerType:
     global _PRODUCER
     if _PRODUCER is not None:
         return _PRODUCER
 
-    bootstrap_servers = settings.KAFKA_BOOTSTRAP_SERVERS
+    if not getattr(settings, "KAFKA_ENABLED", True):
+        raise RuntimeError("Kafka integration is disabled via settings.KAFKA_ENABLED")
+
+    if KafkaProducer is None:
+        raise RuntimeError(
+            "Kafka support requires the kafka-python package. Install it or disable Kafka with KAFKA_ENABLED=0."
+        )
+
+    bootstrap_servers = getattr(settings, "KAFKA_BOOTSTRAP_SERVERS", [])
     if isinstance(bootstrap_servers, str):
         bootstrap_servers = [server.strip() for server in bootstrap_servers.split(',') if server.strip()]
+    if not bootstrap_servers:
+        raise RuntimeError("Kafka bootstrap servers are not configured")
 
     producer_config = {
         "bootstrap_servers": bootstrap_servers,
@@ -63,11 +87,22 @@ def get_producer() -> KafkaProducer:
         ),
     }
     overrides = getattr(settings, "KAFKA_PRODUCER_CONFIG", {})
-    producer_config.update(overrides)
+    if overrides:
+        producer_config.update(overrides)
     producer_config.setdefault("value_serializer", lambda payload: json.dumps(payload).encode("utf-8"))
 
-    logger.debug("Creating KafkaProducer with config %s", {k: producer_config[k] for k in producer_config if k != "value_serializer"})
-    _PRODUCER = KafkaProducer(**producer_config)
+    logger.debug(
+        "Creating KafkaProducer with config %s",
+        {k: producer_config[k] for k in producer_config if k != "value_serializer"},
+    )
+    try:
+        _PRODUCER = KafkaProducer(**producer_config)
+    except NoBrokersAvailable as exc:  # pragma: no cover - environment dependent
+        _PRODUCER = None
+        raise RuntimeError("Kafka broker is unavailable") from exc
+    except Exception as exc:  # pragma: no cover - defensive catch
+        _PRODUCER = None
+        raise RuntimeError(f"Unable to create Kafka producer: {exc}") from exc
     return _PRODUCER
 
 
