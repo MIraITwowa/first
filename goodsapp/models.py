@@ -31,26 +31,58 @@ class Goods(models.Model):
     def __str__(self):
         return f'<Goods %s>' % self.gname
 
+    _I18N_FIELD_MAPPING = {
+        'name': ('name_i18n', 'gname'),
+        'description': ('description_i18n', 'gdesc'),
+        'brand': ('brand_i18n', 'brand'),
+    }
+
+    def _get_i18n_value(self, field: str, lang: str) -> str:
+        storage_field, fallback_field = self._I18N_FIELD_MAPPING[field]
+        translations = getattr(self, storage_field, {}) or {}
+        if lang in translations:
+            return translations[lang]
+        if 'zh' in translations:
+            return translations['zh']
+        return getattr(self, fallback_field)
+
     def get_gname(self, lang='zh'):
         """获取指定语言的商品名称"""
-        return self.name_i18n.get(lang, self.name_i18n.get('zh', self.gname))
+        return self._get_i18n_value('name', lang)
 
     def get_gdesc(self, lang='zh'):
         """获取指定语言的商品描述"""
-        return self.description_i18n.get(lang, self.description_i18n.get('zh', self.gdesc))
+        return self._get_i18n_value('description', lang)
 
     def get_brand(self, lang='zh'):
         """获取指定语言的品牌名称"""
-        return self.brand_i18n.get(lang, self.brand_i18n.get('zh', self.brand))
+        return self._get_i18n_value('brand', lang)
 
     def set_i18n(self, field, values):
         """设置多语言字段的值
         :param field: 字段名称（name/description/brand）
         :param values: 字典格式的多语言值 {'zh': '值', 'en': 'value'}
         """
-        setattr(self, f'{field}_i18n', values)
-        # 设置默认语言（中文）作为兼容性字段的值
-        setattr(self, field, values.get('zh', ''))
+        mapping = self._I18N_FIELD_MAPPING.get(field)
+        if mapping is None:
+            raise ValueError(f"Unsupported i18n field: {field}")
+
+        storage_field, fallback_field = mapping
+        translations = {}
+        if isinstance(values, dict):
+            translations = {
+                str(key): value for key, value in values.items() if value is not None
+            }
+
+        setattr(self, storage_field, translations)
+        updated_fields = [storage_field]
+
+        default_value = translations.get('zh')
+        if default_value is not None:
+            setattr(self, fallback_field, default_value)
+            updated_fields.append(fallback_field)
+
+        return updated_fields
 
 
 class GoodsDetailName(models.Model):

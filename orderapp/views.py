@@ -9,6 +9,7 @@ from django.db import transaction
 from .models import Order, Orderitem
 from .serializers import OrderSerializer, OrderitemSerializer
 from cartapp.models import CartItem  # 从 cartapp 导入 CartItem
+from goodsapp.serializers import GoodsListSerializer
 from userapp.models import Address, RealName  # 从 userapp 导入 Address
 from eventstream.outbox import enqueue_order_event
 
@@ -39,22 +40,27 @@ class CheckoutAPIView(APIView):
     @staticmethod
     def get(request):
         """处理 GET 请求，返回购物车详情和总价"""
-        cart_items = CartItem.objects.filter(userInfo=request.user, is_delete=False)
-        total = sum(item.price * item.num for item in cart_items)
+        cart_items = CartItem.objects.select_related('goods').filter(
+            userInfo=request.user,
+            is_delete=False,
+        )
 
-        # 创建一个临时的订单项列表，用于序列化
-        order_items = []
+        items = []
+        total = 0
         for item in cart_items:
-            order_items.append({
-                'goods': item.goods,
+            line_total = item.price * item.num
+            total += line_total
+            items.append({
+                'id': item.id,
                 'quantity': item.num,
-                'count': item.price
+                'count': item.price,
+                'line_total': line_total,
+                'goods': GoodsListSerializer(item.goods).data,
             })
 
-        serializer = OrderitemSerializer(order_items, many=True)
         return Response({
-            'items': serializer.data,
-            'total': total
+            'items': items,
+            'total': total,
         })
 
     @staticmethod

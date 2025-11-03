@@ -34,12 +34,28 @@ def env_bool(name: str, default=False) -> bool:
 # See https://docs.djangoproject.com/en/5.1/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure--$dqd5+0q@1px(v65hx!@lkkg7-y@skg9n1@ld9p&kmo3vqi_1'
+SECRET_KEY = os.getenv('DJANGO_SECRET_KEY', 'django-insecure--$dqd5+0q@1px(v65hx!@lkkg7-y@skg9n1@ld9p&kmo3vqi_1')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
-# 修改后端服务的主机地址
-ALLOWED_HOSTS = ['localhost', '127.0.0.1']
+DEBUG = env_bool('DJANGO_DEBUG', True)
+
+_default_hosts = ['localhost', '127.0.0.1']
+_env_hosts = [
+    host.strip()
+    for host in os.getenv('DJANGO_ALLOWED_HOSTS', ','.join(_default_hosts)).split(',')
+    if host.strip()
+]
+ALLOWED_HOSTS = list(dict.fromkeys(_env_hosts or _default_hosts))
+if DEBUG:
+    for host in _default_hosts:
+        if host not in ALLOWED_HOSTS:
+            ALLOWED_HOSTS.append(host)
+
+CSRF_TRUSTED_ORIGINS = [
+    origin.strip()
+    for origin in os.getenv('DJANGO_CSRF_TRUSTED_ORIGINS', '').split(',')
+    if origin.strip()
+]
 
 # Application definition
 
@@ -111,16 +127,26 @@ CORS_ALLOW_METHODS = (
 # 跨域配置结束
 
 # 配置缓存开始
-REDIS_CACHE_URL = os.getenv('REDIS_CACHE_URL', os.getenv('REDIS_URL', 'redis://127.0.0.1:6379/1'))
-CACHES = {
-    "default": {
-        "BACKEND": "django_redis.cache.RedisCache",
-        "LOCATION": REDIS_CACHE_URL,
-        "OPTIONS": {
-            "CLIENT_CLASS": "django_redis.client.DefaultClient",
+REDIS_CACHE_URL = os.getenv('REDIS_CACHE_URL', os.getenv('REDIS_URL', ''))
+_use_redis_cache = bool(REDIS_CACHE_URL and not REDIS_CACHE_URL.startswith('locmem://'))
+if _use_redis_cache:
+    CACHES = {
+        "default": {
+            "BACKEND": "django_redis.cache.RedisCache",
+            "LOCATION": REDIS_CACHE_URL,
+            "OPTIONS": {
+                "CLIENT_CLASS": "django_redis.client.DefaultClient",
+                "IGNORE_EXCEPTIONS": True,
+            }
         }
     }
-}
+else:
+    CACHES = {
+        "default": {
+            "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+            "LOCATION": "crossborder-trade-cache",
+        }
+    }
 # 配置缓存结束
 
 # 指定自定义用户模型
@@ -192,20 +218,39 @@ WSGI_APPLICATION = 'crossborder_trade.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/5.1/ref/settings/#databases
 
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.mysql',
-        'NAME': 'crossborder_trade',
-        'USER': 'root',
-        'PASSWORD': '2642',
-        'HOST': '127.0.0.1',
-        'PORT': '3306',
-        'OPTIONS': {
-            'charset': 'utf8mb4',  # 支持存储emoji和其他特殊字符
-            'init_command': "SET sql_mode='STRICT_TRANS_TABLES'",  # 设置严格模式
-        }
-    },
-}
+USE_SQLITE = env_bool('DJANGO_USE_SQLITE', False)
+_db_engine = os.getenv('DB_ENGINE', '').lower()
+if _db_engine in {'sqlite', 'sqlite3'}:
+    USE_SQLITE = True
+if not USE_SQLITE:
+    try:  # pragma: no cover - optional dependency detection
+        import MySQLdb as _mysql_client  # type: ignore  # noqa: F401
+    except ModuleNotFoundError:
+        USE_SQLITE = True
+
+if USE_SQLITE:
+    sqlite_name = os.getenv('SQLITE_DB_NAME', 'db.sqlite3')
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.sqlite3',
+            'NAME': str(BASE_DIR / sqlite_name),
+        },
+    }
+else:
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.mysql',
+            'NAME': os.getenv('DB_NAME', 'crossborder_trade'),
+            'USER': os.getenv('DB_USER', 'root'),
+            'PASSWORD': os.getenv('DB_PASSWORD', ''),
+            'HOST': os.getenv('DB_HOST', '127.0.0.1'),
+            'PORT': os.getenv('DB_PORT', '3306'),
+            'OPTIONS': {
+                'charset': 'utf8mb4',  # 支持存储emoji和其他特殊字符
+                'init_command': "SET sql_mode='STRICT_TRANS_TABLES'",  # 设置严格模式
+            },
+        },
+    }
 
 # Password validation
 # https://docs.djangoproject.com/en/5.1/ref/settings/#auth-password-validators
@@ -243,6 +288,7 @@ USE_TZ = True
 # BASE_DIR=os.path.dirname(os.path.abspath(__file__))
 
 STATIC_URL = 'static/'
+STATIC_ROOT = BASE_DIR / 'staticfiles'
 # STATICFILES_DIRS = [os.path.join(BASE_DIR, 'static')]
 
 # 媒体文件配置
@@ -259,7 +305,9 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 MOCK_PAYMENT_SUCCESS_RATE = 0.8  # 模拟支付成功的概率（80%）
 
 # Kafka 默认配置，便于本地开发
-KAFKA_BOOTSTRAP_SERVERS = os.getenv('KAFKA_BOOTSTRAP_SERVERS', 'localhost:9092')
+_KAFKA_BOOTSTRAP_RAW = os.getenv('KAFKA_BOOTSTRAP_SERVERS', 'localhost:9092')
+KAFKA_BOOTSTRAP_SERVERS = _KAFKA_BOOTSTRAP_RAW
+KAFKA_ENABLED = env_bool('KAFKA_ENABLED', bool(_KAFKA_BOOTSTRAP_RAW.strip()))
 KAFKA_CLIENT_ID = os.getenv('KAFKA_CLIENT_ID', 'crossborder-trade-api')
 KAFKA_PRODUCER_ACKS = os.getenv('KAFKA_PRODUCER_ACKS', 'all')
 KAFKA_PRODUCER_RETRIES = int(os.getenv('KAFKA_PRODUCER_RETRIES', '5'))

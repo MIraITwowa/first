@@ -137,18 +137,7 @@ class GoodsViewSet(viewsets.ModelViewSet):
 
     def create(self, request, *args, **kwargs):
         """创建商品时处理多语言数据"""
-        # 获取多语言数据
-        i18n_fields = {
-            'name_i18n': request.data.get('name_i18n', {}),
-            'description_i18n': request.data.get('description_i18n', {}),
-            'brand_i18n': request.data.get('brand_i18n', {})
-        }
-
-        # 添加多语言数据到序列化器上下文
-        context = self.get_serializer_context()
-        context.update(i18n_fields)
-
-        serializer = self.get_serializer(data=request.data, context=context)
+        serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         self.perform_create(serializer)
 
@@ -160,19 +149,7 @@ class GoodsViewSet(viewsets.ModelViewSet):
         partial = kwargs.pop('partial', False)
         instance = self.get_object()
 
-        # 获取多语言数据
-        i18n_fields = {
-            'name_i18n': request.data.get('name_i18n', {}),
-            'description_i18n': request.data.get('description_i18n', {}),
-            'brand_i18n': request.data.get('brand_i18n', {})
-        }
-
-        # 添加多语言数据到序列化器上下文
-        context = self.get_serializer_context()
-        context.update(i18n_fields)
-
-        serializer = self.get_serializer(instance, data=request.data,
-                                         partial=partial, context=context)
+        serializer = self.get_serializer(instance, data=request.data, partial=partial)
         serializer.is_valid(raise_exception=True)
         self.perform_update(serializer)
 
