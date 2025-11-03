@@ -11,7 +11,16 @@ https://docs.djangoproject.com/en/5.1/ref/settings/
 """
 import importlib
 import os
+import sys
 from pathlib import Path
+
+# Add user site-packages and system packages to Python path for development
+user_site_packages = '/home/engine/.local/lib/python3.12/site-packages'
+system_site_packages = '/usr/lib/python3/dist-packages'
+if user_site_packages not in sys.path:
+    sys.path.insert(0, user_site_packages)
+if system_site_packages not in sys.path:
+    sys.path.insert(0, system_site_packages)
 
 from crossborder_trade.celery_compat import CELERY_AVAILABLE, crontab
 
@@ -24,6 +33,22 @@ DJANGO_CELERY_BEAT_AVAILABLE = importlib.util.find_spec('django_celery_beat') is
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
+
+# Load environment variables from .env file
+try:
+    from dotenv import load_dotenv
+    load_dotenv(os.path.join(BASE_DIR, '.env'))
+except ImportError:
+    # Fallback to manual .env reading
+    try:
+        with open(os.path.join(BASE_DIR, '.env')) as f:
+            for line in f:
+                line = line.strip()
+                if line and not line.startswith('#') and '=' in line:
+                    key, value = line.split('=', 1)
+                    os.environ[key.strip()] = value.strip()
+    except FileNotFoundError:
+        pass  # .env file not found, use system environment
 
 
 def env_bool(name: str, default=False) -> bool:
@@ -39,6 +64,7 @@ SECRET_KEY = os.getenv('DJANGO_SECRET_KEY', 'django-insecure--$dqd5+0q@1px(v65hx
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = env_bool('DJANGO_DEBUG', True)
 
+# Allowed hosts configuration
 _default_hosts = ['localhost', '127.0.0.1']
 _env_hosts = [
     host.strip()
@@ -69,6 +95,7 @@ INSTALLED_APPS = [
 
     'rest_framework',
     'rest_framework_simplejwt',
+    'drf_spectacular',
     # app引用
     'userapp.apps.UserappConfig',
     'goodsapp.apps.GoodsappConfig',
@@ -76,6 +103,7 @@ INSTALLED_APPS = [
     'cartapp.apps.CartappConfig',
     'paymentapp.apps.PaymentappConfig',
     'eventstream.apps.EventstreamConfig',
+    'health.apps.HealthConfig',
     # 跨域处理
     'corsheaders',
 ]
@@ -84,8 +112,8 @@ if DJANGO_CELERY_BEAT_AVAILABLE:
     INSTALLED_APPS.append('django_celery_beat')
 
 MIDDLEWARE = [
-
-    'django.middleware.security.SecurityMiddleware',  # 临时中间件先注释掉
+    'django.middleware.security.SecurityMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',  # Add WhiteNoise for static files
     'django.contrib.sessions.middleware.SessionMiddleware',
     'corsheaders.middleware.CorsMiddleware',  # 注意必须在这个位置
     'django.middleware.common.CommonMiddleware',
@@ -93,12 +121,20 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
-
 ]
 
-# 允许前端请求网址的配置
+# CORS configuration
 CORS_ALLOW_CREDENTIALS = True  # 允许携带cookie信息
-CORS_ORIGIN_ALLOW_ALL = True  # 允许所有来源进行跨域请求
+
+# In development, allow all origins; in production, use specific origins
+if DEBUG:
+    CORS_ORIGIN_ALLOW_ALL = True  # 允许所有来源进行跨域请求
+else:
+    CORS_ALLOWED_ORIGINS = [
+        origin.strip()
+        for origin in os.getenv('CORS_ALLOWED_ORIGINS', '').split(',')
+        if origin.strip()
+    ]
 
 # 跨域时，允许在请求头中携带的参数字段
 CORS_ALLOW_HEADERS = (
@@ -126,8 +162,9 @@ CORS_ALLOW_METHODS = (
 )
 # 跨域配置结束
 
-# 配置缓存开始
-REDIS_CACHE_URL = os.getenv('REDIS_CACHE_URL', os.getenv('REDIS_URL', ''))
+# Cache configuration
+REDIS_URL = os.getenv('REDIS_URL', 'redis://127.0.0.1:6379/0')
+REDIS_CACHE_URL = os.getenv('REDIS_CACHE_URL', REDIS_URL)
 _use_redis_cache = bool(REDIS_CACHE_URL and not REDIS_CACHE_URL.startswith('locmem://'))
 if _use_redis_cache:
     CACHES = {
@@ -147,15 +184,18 @@ else:
             "LOCATION": "crossborder-trade-cache",
         }
     }
-# 配置缓存结束
+# Cache configuration end
 
 # 指定自定义用户模型
 AUTH_USER_MODEL = 'userapp.UserInfo'  # 添加这行
 
-# JWT配置
+# JWT configuration
 from datetime import timedelta
 
 SIMPLE_JWT = {
+    # Optional signing key override (defaults to SECRET_KEY)
+    'SIGNING_KEY': os.getenv('JWT_SIGNING_KEY'),
+    
     # 使用 account 作为 token 的用户标识（与 USERNAME_FIELD 保持一致）
     'USER_ID_FIELD': 'account',  # 修改点：原默认是 'id'
     'USER_ID_CLAIM': 'account',  # token payload 中存储的字段名
@@ -174,25 +214,29 @@ SIMPLE_JWT = {
     # Token 有效期配置
     'ACCESS_TOKEN_LIFETIME': timedelta(minutes=60),
     'REFRESH_TOKEN_LIFETIME': timedelta(days=7),
-    #
-    #     # 改模型时一起改的
-    #     'USER_ID_FIELD': 'id',  # 使用自定义模型的ID
-    #     # 'USER_ID_CLAIM': 'user_id',
-    #     # 'BLACKLIST_AFTER_ROTATION': False  # 禁用token黑名单
-    # }
-    # SIMPLE_JWT = {
-    #     'ROTATE_REFRESH_TOKENS': False,  # 不自动刷新 token
-    #     'BLACKLIST_AFTER_ROTATION': False,  # 不记录 token 到黑名单
 }
-# JWT配置结束
-# DRF配置
+# JWT configuration end
+
+# DRF configuration with OpenAPI
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
         'rest_framework_simplejwt.authentication.JWTAuthentication',
     ),
+    'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
+    'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
+    'PAGE_SIZE': 20,
     # 'DEFAULT_PERMISSION_CLASSES': (
     #     'rest_framework.permissions.IsAuthenticated',
     # )
+}
+
+# OpenAPI/Spectacular configuration
+SPECTACULAR_SETTINGS = {
+    'TITLE': 'Crossborder Trade API',
+    'DESCRIPTION': 'Django 5 based backend that powers a cross-border e-commerce platform',
+    'VERSION': '1.0.0',
+    'SERVE_INCLUDE_SCHEMA': False,
+    'COMPONENT_SPLIT_REQUEST': True,
 }
 
 ROOT_URLCONF = 'crossborder_trade.urls'
@@ -218,10 +262,11 @@ WSGI_APPLICATION = 'crossborder_trade.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/5.1/ref/settings/#databases
 
-USE_SQLITE = env_bool('DJANGO_USE_SQLITE', False)
+USE_SQLITE = env_bool('USE_SQLITE', False)
 _db_engine = os.getenv('DB_ENGINE', '').lower()
 if _db_engine in {'sqlite', 'sqlite3'}:
     USE_SQLITE = True
+
 if not USE_SQLITE:
     try:  # pragma: no cover - optional dependency detection
         import MySQLdb as _mysql_client  # type: ignore  # noqa: F401
@@ -284,16 +329,15 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/5.1/howto/static-files/
 
-# 图片路径的配置
-# BASE_DIR=os.path.dirname(os.path.abspath(__file__))
-
 STATIC_URL = 'static/'
-STATIC_ROOT = BASE_DIR / 'staticfiles'
-# STATICFILES_DIRS = [os.path.join(BASE_DIR, 'static')]
+STATIC_ROOT = Path(os.getenv('STATIC_ROOT', default=str(BASE_DIR / 'staticfiles')))
+STATICFILES_DIRS = [
+    BASE_DIR / 'static',
+]
 
 # 媒体文件配置
 MEDIA_URL = '/media/'
-MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
+MEDIA_ROOT = Path(os.getenv('MEDIA_ROOT', default=str(BASE_DIR / 'media')))
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.1/ref/settings/#default-auto-field
@@ -304,7 +348,7 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 # 模拟支付配置
 MOCK_PAYMENT_SUCCESS_RATE = 0.8  # 模拟支付成功的概率（80%）
 
-# Kafka 默认配置，便于本地开发
+# Kafka configuration
 _KAFKA_BOOTSTRAP_RAW = os.getenv('KAFKA_BOOTSTRAP_SERVERS', 'localhost:9092')
 KAFKA_BOOTSTRAP_SERVERS = _KAFKA_BOOTSTRAP_RAW
 KAFKA_ENABLED = env_bool('KAFKA_ENABLED', bool(_KAFKA_BOOTSTRAP_RAW.strip()))
@@ -414,8 +458,94 @@ default_celery_scheduler = (
     if DJANGO_CELERY_BEAT_AVAILABLE
     else 'celery.beat:PersistentScheduler'
 )
-CELERY_BEAT_SCHEDULER = os.getenv('CELERY_BEAT_SCHEDULER', default_celery_scheduler)
+CELERY_BEAT_SCHEDULER = os.getenv('CELERY_BEAT_SCHEDULER', default=default_celery_scheduler)
 
+# Logging configuration
+LOG_LEVEL = os.getenv('LOG_LEVEL', 'INFO')
+LOG_FORMAT = os.getenv('LOG_FORMAT', 'console')
+
+if LOG_FORMAT == 'json':
+    LOGGING = {
+        'version': 1,
+        'disable_existing_loggers': False,
+        'formatters': {
+            'json': {
+                '()': 'pythonjsonlogger.jsonlogger.JsonFormatter',
+                'format': '%(asctime)s %(name)s %(levelname)s %(message)s'
+            }
+        },
+        'handlers': {
+            'console': {
+                'class': 'logging.StreamHandler',
+                'formatter': 'json',
+            },
+        },
+        'root': {
+            'handlers': ['console'],
+            'level': LOG_LEVEL,
+        },
+        'loggers': {
+            'django': {
+                'handlers': ['console'],
+                'level': LOG_LEVEL,
+                'propagate': False,
+            },
+            'crossborder_trade': {
+                'handlers': ['console'],
+                'level': LOG_LEVEL,
+                'propagate': False,
+            },
+        },
+    }
+else:
+    LOGGING = {
+        'version': 1,
+        'disable_existing_loggers': False,
+        'formatters': {
+            'verbose': {
+                'format': '{levelname} {asctime} {module} {process:d} {thread:d} {message}',
+                'style': '{',
+            },
+            'simple': {
+                'format': '{levelname} {message}',
+                'style': '{',
+            },
+        },
+        'handlers': {
+            'console': {
+                'class': 'logging.StreamHandler',
+                'formatter': 'verbose',
+            },
+        },
+        'root': {
+            'handlers': ['console'],
+            'level': LOG_LEVEL,
+        },
+        'loggers': {
+            'django': {
+                'handlers': ['console'],
+                'level': LOG_LEVEL,
+                'propagate': False,
+            },
+            'crossborder_trade': {
+                'handlers': ['console'],
+                'level': LOG_LEVEL,
+                'propagate': False,
+            },
+        },
+    }
+
+# Superuser creation settings
+CREATE_SUPERUSER = env_bool('CREATE_SUPERUSER', False)
+SUPERUSER_USERNAME = os.getenv('SUPERUSER_USERNAME', 'admin')
+SUPERUSER_EMAIL = os.getenv('SUPERUSER_EMAIL', 'admin@example.com')
+SUPERUSER_PASSWORD = os.getenv('SUPERUSER_PASSWORD', 'admin123')
+
+# WhiteNoise configuration for static files serving
+WHITENOISE_USE_FINDERS = True
+WHITENOISE_AUTOREFRESH = DEBUG  # Only in development
+WHITENOISE_SKIP_COMPRESS_EXTENSIONS = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'zip', 'gz', 'tgz', 'bz2', 'xz', 'br']
+WHITENOISE_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 
 try:
     from .local_settings import *
